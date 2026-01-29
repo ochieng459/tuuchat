@@ -111,7 +111,7 @@ export default function Home() {
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto px-4 py-6 max-w-4xl mx-auto w-full">
         <div className="mb-6">
-          <h2 className="text-xl font-semibold text-gray-300 mb-2">Active Conversations</h2>
+          
           <p className="text-gray-400 text-sm">
             {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'} found
           </p>
