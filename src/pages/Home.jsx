@@ -78,9 +78,9 @@ export default function Home() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-gray-100 font-sans flex flex-col">
+    <div className="h-screen bg-gradient-to-b from-gray-900 to-black text-gray-100 font-sans flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 px-4 py-4">
+      <header className="shrink-0 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 px-4 py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 flex items-center justify-center">
@@ -108,10 +108,9 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Main Content - Scrollable if needed */}
       <main className="flex-1 overflow-y-auto px-4 py-6 max-w-4xl mx-auto w-full">
         <div className="mb-6">
-          
           <p className="text-gray-400 text-sm">
             {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'} found
           </p>
@@ -135,7 +134,7 @@ export default function Home() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-6">
             {filteredUsers.map((u) => (
               <UserCard
                 key={u.id}
@@ -147,9 +146,12 @@ export default function Home() {
         )}
       </main>
 
-      {/* Navbar fixed at bottom */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-gray-900/80 backdrop-blur-md border-t border-gray-800 z-20"></footer>
-      <Navbar />
+      {/* Fixed Footer with Navbar */}
+      <div className="shrink-0">
+        <div className="bg-gray-900/80 backdrop-blur-md border-t border-gray-800">
+          <Navbar />
+        </div>
+      </div>
     </div>
   )
 }
