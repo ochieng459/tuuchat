@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { supabase } from "../services/supabase"
 import { useAuth } from "../hooks/useAuth"
 import { useNavigate } from "react-router-dom"
+
 import { 
   User, 
   Camera, 
@@ -338,7 +339,13 @@ export default function Profile() {
               <Users className="w-6 h-6 text-purple-400" />
               My Groups (Admin)
             </h3>
-            
+            <button
+              onClick={() => navigate("/groups")}
+              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg font-medium transition-all flex items-center gap-2"
+            >
+              <Users className="w-4 h-4" />
+              Create Group
+            </button>
           </div>
 
           {groups.length === 0 ? (
@@ -347,7 +354,7 @@ export default function Profile() {
               <p className="text-gray-400 text-lg mb-2">No groups yet</p>
               <p className="text-gray-500 text-sm mb-6">Create your first group to start chatting with multiple people</p>
               <button
-                onClick={() => navigate("/groups")}
+                onClick={() => navigate("/create-group")}
                 className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg font-medium transition-all"
               >
                 Create Your First Group
@@ -480,6 +487,12 @@ export default function Profile() {
             
             <div className="grid grid-cols-2 gap-3">
               
+              <button
+                onClick={() => navigate("/help")}
+                className="py-3 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-xl font-medium transition-colors"
+              >
+                Help & Support
+              </button>
             </div>
           </div>
         </div>

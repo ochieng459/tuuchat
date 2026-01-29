@@ -26,6 +26,8 @@ export default function GroupView() {
   const [members, setMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState(null)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     fetchGroup()
@@ -33,6 +35,10 @@ export default function GroupView() {
 
   async function fetchGroup() {
     setLoading(true)
+
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser()
+    setCurrentUserId(user?.id)
 
     // 1. Fetch group
     const { data: groupData, error: groupError } = await supabase
@@ -48,6 +54,9 @@ export default function GroupView() {
     }
 
     setGroup(groupData)
+
+    // Check if current user is admin
+    setIsAdmin(user?.id === groupData.created_by)
 
     // 2. Fetch admin profile
     const { data: adminData } = await supabase
@@ -200,22 +209,20 @@ export default function GroupView() {
                   </div>
                 </div>
 
-                <div className="mt-4 lg:mt-0 flex gap-3">
-                  <button
-                    onClick={() => navigate(`/group-settings/${groupId}`)}
-                    className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-                  >
-                    <UserCog className="w-4 h-4" />
-                    Settings
-                  </button>
-                  <button
-                    onClick={() => navigate(`/invite/${groupId}`)}
-                    className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg text-sm font-medium transition-all flex items-center gap-2"
-                  >
-                    <Mail className="w-4 h-4" />
-                    Invite Members
-                  </button>
-                </div>
+                {/* Admin-only buttons */}
+                {isAdmin && (
+                  <div className="mt-4 lg:mt-0 flex gap-3">
+                    <button
+                      onClick={() => navigate("/profile")}
+
+                      className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                    >
+                      <UserCog className="w-4 h-4" />
+                      Settings
+                    </button>
+                    
+                  </div>
+                )}
               </div>
 
               {/* Group Bio */}
@@ -295,6 +302,11 @@ export default function GroupView() {
                         {admin.is_online ? 'Online' : 'Offline'}
                       </p>
                     </div>
+                    {isAdmin && (
+                      <div className="bg-purple-500/20 text-purple-300 px-3 py-1 rounded-full text-xs font-medium">
+                        You
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -366,6 +378,11 @@ export default function GroupView() {
                         <div className="min-w-0">
                           <h4 className="font-medium text-white truncate">
                             {m.profiles.username}
+                            {m.user_id === currentUserId && (
+                              <span className="ml-2 bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full text-xs font-medium">
+                                You
+                              </span>
+                            )}
                           </h4>
                           <p className="text-xs text-gray-400">
                             Joined {new Date(m.profiles.created_at).toLocaleDateString()}
@@ -394,15 +411,18 @@ export default function GroupView() {
                 </div>
               )}
 
-              <div className="mt-8 pt-6 border-t border-gray-700">
-                <button
-                  onClick={() => navigate(`/invite/${groupId}`)}
-                  className="w-full py-3.5 bg-gradient-to-r from-purple-600/20 to-pink-600/20 hover:from-purple-600/30 hover:to-pink-600/30 text-purple-300 rounded-xl font-medium transition-all flex items-center justify-center gap-2"
-                >
-                  <Mail className="w-5 h-5" />
-                  Invite More Members
-                </button>
-              </div>
+              {/* Show Invite button only for admin */}
+              {isAdmin && (
+                <div className="mt-8 pt-6 border-t border-gray-700">
+                  <button
+                    onClick={() => navigate(`/invite/${groupId}`)}
+                    className="w-full py-3.5 bg-gradient-to-r from-purple-600/20 to-pink-600/20 hover:from-purple-600/30 hover:to-pink-600/30 text-purple-300 rounded-xl font-medium transition-all flex items-center justify-center gap-2"
+                  >
+                    <Mail className="w-5 h-5" />
+                    Invite More Members
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

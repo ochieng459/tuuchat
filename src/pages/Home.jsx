@@ -148,6 +148,7 @@ export default function Home() {
       </main>
 
       {/* Navbar fixed at bottom */}
+      <footer className="fixed bottom-0 left-0 right-0 bg-gray-900/80 backdrop-blur-md border-t border-gray-800 z-20"></footer>
       <Navbar />
     </div>
   )

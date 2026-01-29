@@ -1,24 +1,29 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
-import Login from "./pages/Login"
-import Signup from "./pages/Signup"
-import Home from "./pages/Home"
-import Chat from "./pages/Chat"
-import GroupChat from "./pages/GroupChat"
-import GroupView from "./pages/GroupView"
-import PrivateUsers from "./pages/PrivateUsers"
-import Groups from "./pages/Groups"
-import Profile from "./pages/Profile"
-import UserProfile from "./pages/UserProfile"
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import Home from "./pages/Home";
+import Chat from "./pages/Chat";
+import GroupChat from "./pages/GroupChat";
+import GroupView from "./pages/GroupView";
+import PrivateUsers from "./pages/PrivateUsers";
+import Groups from "./pages/Groups";
+import Profile from "./pages/Profile";
+import UserProfile from "./pages/UserProfile";
 
-import "./index.css"
-import { useAuth } from "./hooks/useAuth"
+// ✅ Help Pages
+import Help from "./pages/Help";
+import MyTickets from "./pages/MyTickets";
+import TicketChat from "./pages/TicketChat"; // ✅ new page for viewing/replying to a ticket
+
+import "./index.css";
+import { useAuth } from "./hooks/useAuth";
 
 export default function App() {
-  const { user, loading } = useAuth()
+  const { user, loading } = useAuth();
 
   if (loading) {
-    return <p>Loading...</p>
+    return <p>Loading...</p>;
   }
 
   return (
@@ -75,7 +80,23 @@ export default function App() {
           element={user ? <UserProfile /> : <Navigate to="/" />}
         />
 
+        {/* ✅ Help / Support Pages */}
+        <Route
+          path="/help"
+          element={user ? <Help /> : <Navigate to="/" />}
+        />
+        <Route
+          path="/my-tickets"
+          element={user ? <MyTickets /> : <Navigate to="/" />}
+        />
+
+        {/* ✅ Ticket Chat Page */}
+        <Route
+          path="/ticket/:id"
+          element={user ? <TicketChat /> : <Navigate to="/" />}
+        />
+
       </Routes>
     </BrowserRouter>
-  )
+  );
 }
