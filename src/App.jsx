@@ -10,6 +10,8 @@ import PrivateUsers from "./pages/PrivateUsers";
 import Groups from "./pages/Groups";
 import Profile from "./pages/Profile";
 import UserProfile from "./pages/UserProfile";
+import Notifications from "./pages/Notifications";
+
 
 // ✅ Help Pages
 import Help from "./pages/Help";
@@ -45,6 +47,13 @@ export default function App() {
           path="/home"
           element={user ? <Home /> : <Navigate to="/" />}
         />
+
+        <Route
+  path="/notifications"
+  element={user ? <Notifications /> : <Navigate to="/" />}
+/>
+
+
         <Route
           path="/private"
           element={user ? <PrivateUsers /> : <Navigate to="/" />}
