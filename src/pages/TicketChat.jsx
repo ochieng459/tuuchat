@@ -185,57 +185,69 @@ export default function TicketChat() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-gray-100 flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-gray-900/80 backdrop-blur-md border-b border-gray-800 px-4 py-4">
+      <header className="sticky top-0 z-10 bg-gray-900/90 backdrop-blur-md border-b border-gray-800 px-4 py-3">
         <div className="max-w-6xl mx-auto">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
+          {/* Top Row */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
+            {/* Left Section */}
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
               <button
                 onClick={() => navigate(-1)}
-                className="flex items-center gap-2 text-gray-300 hover:text-white transition-colors"
+                className="flex items-center gap-2 text-gray-300 hover:text-white transition-colors shrink-0"
               >
                 <ArrowLeft className="w-5 h-5" />
-                Back
+                <span className="hidden sm:inline">Back</span>
               </button>
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl">
-                  <MessageSquare className="w-6 h-6 text-white" />
+
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <div className="p-1.5 sm:p-2 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl shrink-0">
+                  <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
-                <div>
-                  <h1 className="text-lg font-bold text-white truncate max-w-[200px] sm:max-w-md">
+
+                <div className="min-w-0">
+                  <h1 className="text-base sm:text-lg font-bold text-white truncate max-w-[160px] sm:max-w-md">
                     {ticketInfo?.subject || "Support Ticket"}
                   </h1>
-                  <p className="text-xs text-gray-400">
+
+                  <p className="text-xs text-gray-400 truncate">
                     Ticket ID: #{id?.slice(0, 8)}
                   </p>
                 </div>
               </div>
             </div>
 
+            {/* Status Badge */}
             {status && (
-              <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border ${status.color} text-sm font-medium`}>
+              <div className={`self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border ${status.color} text-xs sm:text-sm font-medium`}>
                 {status.icon}
                 {status.label}
               </div>
             )}
           </div>
 
-          {/* Ticket Info */}
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1.5 text-gray-400">
+          {/* Ticket Info Row */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs sm:text-sm">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-gray-400">
+              <div className="flex items-center gap-1.5">
                 <Calendar className="w-4 h-4" />
-                <span>Created: {new Date(ticketInfo?.created_at).toLocaleDateString()}</span>
+                <span>
+                  Created: {new Date(ticketInfo?.created_at).toLocaleDateString()}
+                </span>
               </div>
+
               {ticketInfo?.updated_at !== ticketInfo?.created_at && (
-                <div className="flex items-center gap-1.5 text-gray-400">
+                <div className="flex items-center gap-1.5">
                   <Clock className="w-4 h-4" />
-                  <span>Updated: {new Date(ticketInfo?.updated_at).toLocaleDateString()}</span>
+                  <span>
+                    Updated: {new Date(ticketInfo?.updated_at).toLocaleDateString()}
+                  </span>
                 </div>
               )}
             </div>
+
             <button
               onClick={() => navigate("/help")}
-              className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg text-xs font-medium transition-colors flex items-center gap-2"
+              className="w-full sm:w-auto px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2"
             >
               <Ticket className="w-3 h-3" />
               New Ticket
@@ -354,31 +366,37 @@ export default function TicketChat() {
       </div>
 
       {/* Input Form */}
-      <div className="sticky bottom-0 bg-gray-900/80 backdrop-blur-md border-t border-gray-800 px-4 py-4">
+      <div className="sticky bottom-0 bg-gray-900/80 backdrop-blur-md border-t border-gray-800 px-2 sm:px-4 py-3 sm:py-4">
         <div className="max-w-4xl mx-auto">
-          <form onSubmit={sendMessage} className="flex items-center gap-3">
+          <form
+            onSubmit={sendMessage}
+            className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3"
+          >
+            {/* Tickets Button */}
             <button
               type="button"
               onClick={() => navigate("/my-tickets")}
-              className="p-3 rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors"
+              className="p-2.5 sm:p-3 rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors shrink-0"
               title="My Tickets"
             >
-              <Ticket className="w-6 h-6 text-gray-300" />
+              <Ticket className="w-5 h-5 sm:w-6 sm:h-6 text-gray-300" />
             </button>
-            
+
+            {/* Input */}
             <input
               type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type your message to support..."
+              placeholder="Type your message..."
               disabled={sending}
-              className="flex-1 px-4 py-3.5 bg-gray-800 border-2 border-gray-700 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+              className="flex-1 min-w-0 px-3 sm:px-4 py-3 bg-gray-800 border-2 border-gray-700 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
             />
-            
+
+            {/* Send Button */}
             <button
               type="submit"
               disabled={sending || !newMessage.trim()}
-              className={`px-6 py-3.5 rounded-xl font-medium transition-all duration-200 flex items-center gap-2 ${
+              className={`px-3 sm:px-6 py-3 rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2 shrink-0 ${
                 sending || !newMessage.trim()
                   ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                   : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-blue-500/25'
@@ -387,12 +405,12 @@ export default function TicketChat() {
               {sending ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Sending...
+                  <span className="hidden sm:inline">Sending...</span>
                 </>
               ) : (
                 <>
                   <Send className="w-5 h-5" />
-                  Send
+                  <span className="hidden sm:inline">Send</span>
                 </>
               )}
             </button>

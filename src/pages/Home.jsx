@@ -16,8 +16,9 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [unreadNotifications, setUnreadNotifications] = useState(0)
 
-  // --- Fetch Public Users + Unread Count ---
+  // ---------------- FETCH USERS ----------------
   const fetchPublicUsers = async () => {
+    if (!user) return
     setLoading(true)
 
     const { data: usersData, error } = await supabase
@@ -32,7 +33,6 @@ export default function Home() {
       return
     }
 
-    // Fetch unread messages
     const { data: unreadData } = await supabase
       .from("messages")
       .select("sender_id")
@@ -44,18 +44,20 @@ export default function Home() {
       unreadMap[m.sender_id] = (unreadMap[m.sender_id] || 0) + 1
     })
 
-    const mergedUsers = usersData.map((u) => ({
+    const merged = usersData.map((u) => ({
       ...u,
       unreadCount: unreadMap[u.id] || 0
     }))
 
-    setPublicUsers(mergedUsers)
-    setFilteredUsers(mergedUsers)
+    setPublicUsers(merged)
+    setFilteredUsers(merged)
     setLoading(false)
   }
 
-  // --- Fetch unread notifications count ---
+  // ---------------- FETCH NOTIFICATIONS ----------------
   const fetchUnreadNotifications = async () => {
+    if (!user) return
+
     const { data } = await supabase
       .from("notifications")
       .select("id")
@@ -65,52 +67,72 @@ export default function Home() {
     setUnreadNotifications(data?.length || 0)
   }
 
-  // --- Search Filter ---
+  // ---------------- SEARCH FILTER ----------------
   useEffect(() => {
     const value = search.trim().toLowerCase()
     if (!value) return setFilteredUsers(publicUsers)
+
     setFilteredUsers(
-      publicUsers.filter((u) => u.username.toLowerCase().includes(value))
+      publicUsers.filter((u) =>
+        u.username.toLowerCase().includes(value)
+      )
     )
   }, [search, publicUsers])
 
-  // --- Realtime Updates ---
+  // ---------------- REALTIME ----------------
   useEffect(() => {
+    if (!user) return
+
     const channel = supabase
-      .channel("home-unread-messages")
+      .channel("home-live")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages", filter: `receiver_id=eq.${user.id}` },
-        () => fetchPublicUsers()
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `receiver_id=eq.${user.id}`
+        },
+        fetchPublicUsers
       )
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
-        () => fetchUnreadNotifications()
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`
+        },
+        fetchUnreadNotifications
       )
       .subscribe()
 
     return () => supabase.removeChannel(channel)
-  }, [])
+  }, [user])
 
-  // --- Initial Fetch ---
+  // ---------------- INITIAL LOAD ----------------
   useEffect(() => {
+    if (!user) return
     fetchPublicUsers()
     fetchUnreadNotifications()
-  }, [])
+  }, [user])
+
+  // ================= UI =================
 
   return (
     <div className="h-screen bg-gradient-to-b from-gray-900 to-black text-gray-100 font-sans flex flex-col overflow-hidden">
-      {/* Header */}
-      <header className="shrink-0 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 px-4 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            {/* Notification Icon */}
+
+      {/* ---------------- HEADER ---------------- */}
+      <header className="shrink-0 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 px-3 py-3">
+        <div className="max-w-4xl mx-auto flex flex-wrap items-center gap-3">
+
+          {/* Left */}
+          <div className="flex items-center space-x-3 flex-shrink-0">
             <button
               onClick={() => navigate("/notifications")}
-              className="relative w-10 h-10 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 flex items-center justify-center hover:scale-105 transition"
+              className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 flex items-center justify-center hover:scale-105 transition"
             >
-              <Bell size={20} className="text-white" />
+              <Bell size={18} className="text-white" />
               {unreadNotifications > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full font-bold">
                   {unreadNotifications}
@@ -118,46 +140,39 @@ export default function Home() {
               )}
             </button>
 
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+            <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
               tuuChat
             </h1>
           </div>
 
-          {/* Search Input */}
-          <div className="relative">
+          {/* Search */}
+          <div className="relative w-full sm:w-64 sm:ml-auto">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg
-                className="h-5 w-5 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
+              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                 />
               </svg>
             </div>
+
             <input
               type="text"
               placeholder="Search users..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 pr-4 py-2.5 w-64 rounded-xl bg-gray-800/50 border border-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-800/50 border border-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
             />
           </div>
+
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* ---------------- MAIN ---------------- */}
       <main className="flex-1 overflow-y-auto px-4 py-6 max-w-4xl mx-auto w-full">
-        <div className="mb-6">
-          <p className="text-gray-400 text-sm">
-            {filteredUsers.length} {filteredUsers.length === 1 ? "user" : "users"} found
-          </p>
-        </div>
+
+        <p className="text-gray-400 text-sm mb-6">
+          {filteredUsers.length} {filteredUsers.length === 1 ? "user" : "users"} found
+        </p>
 
         {loading ? (
           <div className="flex flex-col items-center justify-center py-12">
@@ -165,35 +180,28 @@ export default function Home() {
             <p className="text-gray-400">Loading users...</p>
           </div>
         ) : filteredUsers.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-24 h-24 mx-auto mb-4 text-gray-600">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                />
-              </svg>
-            </div>
-            <p className="text-gray-400 text-lg">No users found</p>
-            {search && <p className="text-gray-500 mt-2">Try a different search term</p>}
+          <div className="text-center py-12 text-gray-400">
+            No users found
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-6">
             {filteredUsers.map((u) => (
-              <UserCard key={u.id} user={u} onClick={() => navigate(`/chat/${u.id}`)} />
+              <UserCard
+                key={u.id}
+                user={u}
+                onClick={() => navigate(`/chat/${u.id}`)}
+              />
             ))}
           </div>
         )}
+
       </main>
 
-      {/* Footer Navbar */}
-      <div className="shrink-0">
-        <div className="bg-gray-900/80 backdrop-blur-md border-t border-gray-800">
-          <Navbar />
-        </div>
+      {/* ---------------- FOOTER ---------------- */}
+      <div className="shrink-0 bg-gray-900/80 backdrop-blur-md border-t border-gray-800">
+        <Navbar />
       </div>
+
     </div>
   )
 }

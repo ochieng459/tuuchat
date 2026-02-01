@@ -354,7 +354,7 @@ export default function Profile() {
               <p className="text-gray-400 text-lg mb-2">No groups yet</p>
               <p className="text-gray-500 text-sm mb-6">Create your first group to start chatting with multiple people</p>
               <button
-                onClick={() => navigate("/create-group")}
+                onClick={() => navigate("/groups")}
                 className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg font-medium transition-all"
               >
                 Create Your First Group

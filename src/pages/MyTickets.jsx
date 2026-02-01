@@ -134,8 +134,8 @@ export default function MyTickets() {
                   <Ticket className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-white">My Support Tickets</h1>
-                  <p className="text-xs text-gray-400">Track and manage your support requests</p>
+                  <h1 className="text-xl font-bold text-white">Support Tickets</h1>
+                  
                 </div>
               </div>
             </div>

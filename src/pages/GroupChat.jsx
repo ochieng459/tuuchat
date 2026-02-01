@@ -249,22 +249,29 @@ export default function GroupChat() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-gray-100 flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-gray-900/80 backdrop-blur-md border-b border-gray-800 px-4 py-3">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-20 bg-gray-900/80 backdrop-blur-md border-b border-gray-800 px-3 sm:px-4 py-2.5 sm:py-3">
+        <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-2">
+          
+          {/* LEFT */}
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <button
               onClick={() => navigate("/groups")}
-              className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors"
+              className="p-1.5 sm:p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors shrink-0"
             >
               <ArrowLeft className="w-5 h-5 text-gray-300" />
             </button>
-            <div>
-              <h1 className="text-lg font-semibold text-white truncate max-w-[150px] sm:max-w-xs">
+
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-semibold text-white truncate max-w-[120px] sm:max-w-xs">
                 {group.name}
               </h1>
-              <div className="flex items-center gap-2 text-xs text-gray-400">
-                <Users className="w-3 h-3" />
-                <span>{members.length + 1} members</span>
+
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-400">
+                <span className="flex items-center gap-1">
+                  <Users className="w-3 h-3" />
+                  {members.length + 1} members
+                </span>
+
                 <span className="text-green-400 flex items-center gap-1">
                   <CheckCircle className="w-3 h-3" />
                   {members.filter(m => m.is_online).length + 1} online
@@ -273,27 +280,28 @@ export default function GroupChat() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* RIGHT */}
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <button
               onClick={() => navigate(`/groups/${group.id}`)}
-              className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+              className="p-1.5 sm:p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
               title="View Group"
             >
               <Eye className="w-5 h-5" />
             </button>
-            
+
             {isAdmin ? (
               <div className="relative">
                 <button
                   onClick={() => setShowAdminMenu(!showAdminMenu)}
-                  className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+                  className="p-1.5 sm:p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
                   title="Admin Actions"
                 >
                   <Settings className="w-5 h-5" />
                 </button>
-                
+
                 {showAdminMenu && (
-                  <div className="absolute right-0 top-full mt-1 w-48 bg-gray-800 rounded-xl border border-gray-700 shadow-2xl z-30">
+                  <div className="absolute right-0 top-full mt-1 w-44 sm:w-48 bg-gray-800 rounded-xl border border-gray-700 shadow-2xl z-30">
                     <div className="p-2">
                       <button
                         onClick={() => {
@@ -305,6 +313,7 @@ export default function GroupChat() {
                         <UserPlus className="w-4 h-4" />
                         <span className="text-sm">Add Member</span>
                       </button>
+
                       <button
                         onClick={() => {
                           setShowRemoveMember(true)
@@ -315,6 +324,7 @@ export default function GroupChat() {
                         <Users className="w-4 h-4" />
                         <span className="text-sm">Manage Members</span>
                       </button>
+
                       <button
                         onClick={deleteGroup}
                         className="w-full flex items-center gap-3 px-3 py-2.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
@@ -329,7 +339,7 @@ export default function GroupChat() {
             ) : (
               <button
                 onClick={leaveGroup}
-                className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+                className="p-1.5 sm:p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
                 title="Leave Group"
               >
                 <LogOut className="w-5 h-5" />
@@ -428,38 +438,41 @@ export default function GroupChat() {
         </div>
       </div>
 
-      {/* Input Form */}
-      <div className="sticky bottom-0 bg-gray-900/80 backdrop-blur-md border-t border-gray-800 px-4 py-4">
+      {/* INPUT FORM */}
+      <div className="sticky bottom-0 bg-gray-900/80 backdrop-blur-md border-t border-gray-800 px-3 sm:px-4 py-3">
         <div className="max-w-6xl mx-auto">
-          <form onSubmit={handleSend} className="flex items-center gap-3">
+          <form onSubmit={handleSend} className="flex items-end gap-2 sm:gap-3">
+            {/* Group Info Button */}
             <button
               type="button"
               onClick={() => navigate(`/groups/${groupId}`)}
-              className="p-3 rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors"
+              className="flex-shrink-0 p-2.5 sm:p-3 rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors"
               title="Group Info"
             >
-              <Users className="w-6 h-6 text-gray-300" />
+              <Users className="w-5 sm:w-6 h-5 sm:h-6 text-gray-300" />
             </button>
-            
+
+            {/* Message Input */}
             <input
               ref={inputRef}
-              className="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Type your message..."
+              className="flex-1 min-w-0 px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             />
-            
+
+            {/* Send Button */}
             <button
               type="submit"
               disabled={!newMessage.trim()}
-              className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
+              className={`flex-shrink-0 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-medium transition-all duration-200 flex items-center gap-2 ${
                 !newMessage.trim()
                   ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                   : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg hover:shadow-purple-500/25'
-              } flex items-center gap-2`}
+              }`}
             >
-              <Send className="w-5 h-5" />
-              Send
+              <Send className="w-4 sm:w-5 h-4 sm:h-5" />
+              <span className="hidden sm:inline">Send</span>
             </button>
           </form>
         </div>
@@ -550,7 +563,7 @@ export default function GroupChat() {
         </Modal>
       )}
 
-      <Navbar />
+     
     </div>
   )
 }
