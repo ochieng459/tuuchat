@@ -11,7 +11,8 @@ import Groups from "./pages/Groups";
 import Profile from "./pages/Profile";
 import UserProfile from "./pages/UserProfile";
 import Notifications from "./pages/Notifications";
-
+import PrivateRoomsView from "./pages/PrivateRoomsView"; // <-- Added
+import PrivateRoomChat from "./pages/PrivateRoomChat"; // <-- New chat page
 
 // ✅ Help Pages
 import Help from "./pages/Help";
@@ -49,10 +50,9 @@ export default function App() {
         />
 
         <Route
-  path="/notifications"
-  element={user ? <Notifications /> : <Navigate to="/" />}
-/>
-
+          path="/notifications"
+          element={user ? <Notifications /> : <Navigate to="/" />}
+        />
 
         <Route
           path="/private"
@@ -77,6 +77,16 @@ export default function App() {
         <Route
           path="/groups/:id"
           element={user ? <GroupView /> : <Navigate to="/" />}
+        />
+
+        {/* ✅ Private Room Pages */}
+        <Route
+          path="/privateroom/:id"
+          element={user ? <PrivateRoomsView /> : <Navigate to="/" />}
+        />
+        <Route
+          path="/privateroomchat/:id"
+          element={user ? <PrivateRoomChat /> : <Navigate to="/" />}
         />
 
         {/* Profiles */}

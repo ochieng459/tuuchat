@@ -15,7 +15,9 @@ import {
   Image as ImageIcon,
   Mail,
   Calendar,
-  Globe
+  Globe,
+  Plus,
+  Lock
 } from "lucide-react"
 
 export default function Profile() {
@@ -31,6 +33,24 @@ export default function Profile() {
   const [groupName, setGroupName] = useState("")
   const [editingBioGroupId, setEditingBioGroupId] = useState(null)
   const [groupBio, setGroupBio] = useState("")
+
+  // Private Rooms State
+  const [showPrivateRoomModal, setShowPrivateRoomModal] = useState(false)
+  const [privateRooms, setPrivateRooms] = useState([])
+  const [roomForm, setRoomForm] = useState({
+    name: "",
+    description: "",
+    price: ""
+  })
+  const [creatingRoom, setCreatingRoom] = useState(false)
+  
+  // Private Room Editing States
+  const [editingRoomId, setEditingRoomId] = useState(null)
+  const [editingRoomName, setEditingRoomName] = useState("")
+  const [editingRoomDescriptionId, setEditingRoomDescriptionId] = useState(null)
+  const [editingRoomDescription, setEditingRoomDescription] = useState("")
+  const [editingRoomPriceId, setEditingRoomPriceId] = useState(null)
+  const [editingRoomPrice, setEditingRoomPrice] = useState("")
 
   /* =========================
      FETCH PROFILE
@@ -60,10 +80,149 @@ export default function Profile() {
     if (!error) setGroups(data)
   }
 
+  /* =========================
+     FETCH PRIVATE ROOMS
+  ========================== */
+  const fetchPrivateRooms = async () => {
+    const { data, error } = await supabase
+      .from("private_rooms")
+      .select("*")
+      .eq("created_by", user.id)
+      .order("created_at", { ascending: false })
+
+    if (!error) setPrivateRooms(data)
+  }
+
   useEffect(() => {
     fetchProfile()
     fetchMyGroups()
+    fetchPrivateRooms()
   }, [user.id])
+
+  /* =========================
+     CREATE PRIVATE ROOM
+  ========================== */
+  const handleCreatePrivateRoom = async () => {
+    if (!roomForm.name.trim()) {
+      alert("Room name is required")
+      return
+    }
+
+    if (!roomForm.price || isNaN(parseFloat(roomForm.price)) || parseFloat(roomForm.price) < 0) {
+      alert("Please enter a valid price")
+      return
+    }
+
+    setCreatingRoom(true)
+
+    const roomData = {
+      name: roomForm.name.trim(),
+      description: roomForm.description.trim(),
+      price: parseFloat(roomForm.price),
+      created_by: user.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+
+    const { data, error } = await supabase
+      .from("private_rooms")
+      .insert([roomData])
+      .select()
+
+    if (error) {
+      console.error("Error creating private room:", error)
+      alert("Failed to create private room")
+      setCreatingRoom(false)
+      return
+    }
+
+    // Reset form and close modal
+    setRoomForm({
+      name: "",
+      description: "",
+      price: ""
+    })
+    setShowPrivateRoomModal(false)
+    
+    // Refresh private rooms list
+    fetchPrivateRooms()
+    setCreatingRoom(false)
+    
+    alert("Private room created successfully!")
+  }
+
+  /* =========================
+     RENAME PRIVATE ROOM
+  ========================== */
+  const handleRenamePrivateRoom = async (roomId) => {
+    if (!editingRoomName.trim()) return
+
+    await supabase
+      .from("private_rooms")
+      .update({ 
+        name: editingRoomName.trim(),
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", roomId)
+
+    setPrivateRooms((prev) =>
+      prev.map((room) =>
+        room.id === roomId ? { ...room, name: editingRoomName.trim() } : room
+      )
+    )
+
+    setEditingRoomId(null)
+    setEditingRoomName("")
+  }
+
+  /* =========================
+     UPDATE PRIVATE ROOM DESCRIPTION
+  ========================== */
+  const handleUpdatePrivateRoomDescription = async (roomId) => {
+    await supabase
+      .from("private_rooms")
+      .update({ 
+        description: editingRoomDescription.trim(),
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", roomId)
+
+    setPrivateRooms((prev) =>
+      prev.map((room) =>
+        room.id === roomId ? { ...room, description: editingRoomDescription.trim() } : room
+      )
+    )
+
+    setEditingRoomDescriptionId(null)
+    setEditingRoomDescription("")
+  }
+
+  /* =========================
+     UPDATE PRIVATE ROOM PRICE
+  ========================== */
+  const handleUpdatePrivateRoomPrice = async (roomId) => {
+    if (!editingRoomPrice || isNaN(parseFloat(editingRoomPrice)) || parseFloat(editingRoomPrice) < 0) {
+      alert("Please enter a valid price")
+      return
+    }
+
+    await supabase
+      .from("private_rooms")
+      .update({ 
+        price: parseFloat(editingRoomPrice),
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", roomId)
+
+    setPrivateRooms((prev) =>
+      prev.map((room) =>
+        room.id === roomId ? { ...room, price: parseFloat(editingRoomPrice) } : room
+      )
+    )
+
+    setEditingRoomPriceId(null)
+    setEditingRoomPrice("")
+  }
 
   /* =========================
      UPDATE USER AVATAR
@@ -312,6 +471,13 @@ export default function Profile() {
                   </div>
                   <div className="bg-gray-900/50 rounded-lg p-3">
                     <div className="flex items-center gap-2 text-gray-400 mb-1">
+                      <Lock className="w-4 h-4" />
+                      <span className="text-xs">Private Rooms</span>
+                    </div>
+                    <p className="text-sm text-gray-300">{privateRooms.length}</p>
+                  </div>
+                  <div className="bg-gray-900/50 rounded-lg p-3">
+                    <div className="flex items-center gap-2 text-gray-400 mb-1">
                       <Calendar className="w-4 h-4" />
                       <span className="text-xs">Member Since</span>
                     </div>
@@ -319,17 +485,194 @@ export default function Profile() {
                       {new Date(profile.created_at).toLocaleDateString()}
                     </p>
                   </div>
-                  <div className="bg-gray-900/50 rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-gray-400 mb-1">
-                      <Globe className="w-4 h-4" />
-                      <span className="text-xs">Status</span>
-                    </div>
-                    <p className="text-sm text-green-400">Online</p>
-                  </div>
                 </div>
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Private Rooms Section */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+              <Lock className="w-6 h-6 text-blue-400" />
+              My Private Rooms
+            </h3>
+            <button
+              onClick={() => setShowPrivateRoomModal(true)}
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-medium transition-all flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Create Private Room
+            </button>
+          </div>
+
+          {privateRooms.length === 0 ? (
+            <div className="bg-gray-800/30 rounded-2xl p-12 text-center border border-dashed border-gray-700">
+              <Lock className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+              <p className="text-gray-400 text-lg mb-2">No private rooms yet</p>
+              <p className="text-gray-500 text-sm mb-6">Create private rooms with paid access for exclusive content</p>
+              <button
+                onClick={() => setShowPrivateRoomModal(true)}
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-medium transition-all"
+              >
+                Create Private Room
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {privateRooms.map((room) => (
+                <div
+                  key={room.id}
+                  className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-5 border border-gray-700 hover:border-blue-500/30 transition-all"
+                >
+                  {/* Room Header with Edit Button */}
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="w-12 h-12 rounded-full bg-blue-900/30 border border-blue-500/30 flex items-center justify-center">
+                      <Lock className="w-6 h-6 text-blue-400" />
+                    </div>
+                    
+                    <div className="flex-1">
+                      {editingRoomId === room.id ? (
+                        <div className="flex items-center gap-2 mb-2">
+                          <input
+                            value={editingRoomName}
+                            onChange={(e) => setEditingRoomName(e.target.value)}
+                            className="flex-1 px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                            placeholder="Room name"
+                          />
+                          <button
+                            onClick={() => handleRenamePrivateRoom(room.id)}
+                            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm flex items-center gap-1"
+                          >
+                            <Save className="w-3 h-3" />
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingRoomId(null)}
+                            className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-lg font-medium text-white">{room.name}</h4>
+                          <button
+                            onClick={() => {
+                              setEditingRoomId(room.id)
+                              setEditingRoomName(room.name)
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Room Price with Edit Button */}
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-400">Price</span>
+                      {editingRoomPriceId === room.id ? (
+                        <button
+                          onClick={() => handleUpdatePrivateRoomPrice(room.id)}
+                          className="text-green-400 hover:text-green-300 text-sm flex items-center gap-1"
+                        >
+                          <Save className="w-3 h-3" />
+                          Save Price
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setEditingRoomPriceId(room.id)
+                            setEditingRoomPrice(room.price?.toString() || "0")
+                          }}
+                          className="text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                          Edit Price
+                        </button>
+                      )}
+                    </div>
+
+                    {editingRoomPriceId === room.id ? (
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
+                          KSH
+                        </span>
+                        <input
+                          type="number"
+                          value={editingRoomPrice}
+                          onChange={(e) => setEditingRoomPrice(e.target.value)}
+                          className="w-full pl-12 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                          placeholder="0.00"
+                          min="0"
+                          step="0.01"
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-sm text-blue-400 bg-gray-900/30 rounded-lg p-3">
+                        KSH {room.price || "0"}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Room Description with Edit Button */}
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-400">Description</span>
+                      {editingRoomDescriptionId === room.id ? (
+                        <button
+                          onClick={() => handleUpdatePrivateRoomDescription(room.id)}
+                          className="text-green-400 hover:text-green-300 text-sm flex items-center gap-1"
+                        >
+                          <Save className="w-3 h-3" />
+                          Save Description
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setEditingRoomDescriptionId(room.id)
+                            setEditingRoomDescription(room.description || "")
+                          }}
+                          className="text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                          Edit Description
+                        </button>
+                      )}
+                    </div>
+
+                    {editingRoomDescriptionId === room.id ? (
+                      <div className="space-y-2">
+                        <textarea
+                          value={editingRoomDescription}
+                          onChange={(e) => setEditingRoomDescription(e.target.value)}
+                          className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                          rows="3"
+                          placeholder="Enter room description..."
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-gray-300 text-sm p-3 bg-gray-900/30 rounded-lg">
+                        {room.description || "No description provided"}
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center justify-between text-xs text-gray-500 mt-4">
+                    <span>Created: {new Date(room.created_at).toLocaleDateString()}</span>
+                    <span className="px-2 py-1 bg-blue-900/30 text-blue-300 rounded">
+                      Paid Access
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* My Groups Section */}
@@ -486,7 +829,6 @@ export default function Profile() {
             </button>
             
             <div className="grid grid-cols-2 gap-3">
-              
               <button
                 onClick={() => navigate("/help")}
                 className="py-3 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-xl font-medium transition-colors"
@@ -497,6 +839,103 @@ export default function Profile() {
           </div>
         </div>
       </main>
+
+      {/* Private Room Creation Modal */}
+      {showPrivateRoomModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-gray-800 rounded-2xl w-full max-w-md border border-gray-700 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-900/30 border border-blue-500/30 flex items-center justify-center">
+                  <Lock className="w-5 h-5 text-blue-400" />
+                </div>
+                <h2 className="text-xl font-bold text-white">Create Private Room</h2>
+              </div>
+              <button
+                onClick={() => setShowPrivateRoomModal(false)}
+                className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Room Name *
+                </label>
+                <input
+                  type="text"
+                  value={roomForm.name}
+                  onChange={(e) => setRoomForm({...roomForm, name: e.target.value})}
+                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter room name"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Description
+                </label>
+                <textarea
+                  value={roomForm.description}
+                  onChange={(e) => setRoomForm({...roomForm, description: e.target.value})}
+                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows="3"
+                  placeholder="Describe what this private room offers..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Price (KSH) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400">
+                    KSH
+                  </span>
+                  <input
+                    type="number"
+                    value={roomForm.price}
+                    onChange={(e) => setRoomForm({...roomForm, price: e.target.value})}
+                    className="w-full pl-14 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4 flex gap-3">
+                <button
+                  onClick={() => setShowPrivateRoomModal(false)}
+                  className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-xl font-medium transition-colors"
+                  disabled={creatingRoom}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreatePrivateRoom}
+                  disabled={creatingRoom}
+                  className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2"
+                >
+                  {creatingRoom ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-5 h-5" />
+                      Create Room
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

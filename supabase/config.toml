@@ -1,0 +1,33 @@
+
+[functions.init-paystack-payment]
+enabled = true
+verify_jwt = true
+import_map = "./functions/init-paystack-payment/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/init-paystack-payment/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/init-paystack-payment/*.html" ]
+
+[functions.paystack-webhook]
+enabled = true
+verify_jwt = true
+import_map = "./functions/paystack-webhook/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/paystack-webhook/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/paystack-webhook/*.html" ]
+
+[functions.check-room-access]
+enabled = true
+verify_jwt = true
+import_map = "./functions/check-room-access/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/check-room-access/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/check-room-access/*.html" ]

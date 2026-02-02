@@ -4,7 +4,7 @@ import { useAuth } from "../hooks/useAuth"
 import { useNavigate } from "react-router-dom"
 import Navbar from "../components/Navbar"
 import UserCard from "../components/UserCard"
-import { Bell } from "lucide-react"
+import { Bell, Lock, Users } from "lucide-react"
 
 export default function Home() {
   const { user } = useAuth()
@@ -15,6 +15,10 @@ export default function Home() {
   const [filteredUsers, setFilteredUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [unreadNotifications, setUnreadNotifications] = useState(0)
+  
+  // Private Rooms State
+  const [privateRooms, setPrivateRooms] = useState([])
+  const [loadingPrivateRooms, setLoadingPrivateRooms] = useState(false)
 
   // ---------------- FETCH USERS ----------------
   const fetchPublicUsers = async () => {
@@ -52,6 +56,27 @@ export default function Home() {
     setPublicUsers(merged)
     setFilteredUsers(merged)
     setLoading(false)
+  }
+
+  // ---------------- FETCH PRIVATE ROOMS ----------------
+  const fetchPrivateRooms = async () => {
+    if (!user) return
+    setLoadingPrivateRooms(true)
+
+    const { data, error } = await supabase
+      .from("private_rooms")
+      .select("id, name, description, price, created_by")
+      .order("created_at", { ascending: false })
+      .limit(10) // Show only recent rooms
+
+    if (error) {
+      console.error("Error fetching private rooms:", error)
+      setLoadingPrivateRooms(false)
+      return
+    }
+
+    setPrivateRooms(data)
+    setLoadingPrivateRooms(false)
   }
 
   // ---------------- FETCH NOTIFICATIONS ----------------
@@ -105,6 +130,15 @@ export default function Home() {
         },
         fetchUnreadNotifications
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "private_rooms"
+        },
+        fetchPrivateRooms
+      )
       .subscribe()
 
     return () => supabase.removeChannel(channel)
@@ -114,8 +148,14 @@ export default function Home() {
   useEffect(() => {
     if (!user) return
     fetchPublicUsers()
+    fetchPrivateRooms()
     fetchUnreadNotifications()
   }, [user])
+
+  // ---------------- HANDLE ROOM CLICK ----------------
+  const handleRoomClick = (roomId) => {
+    navigate(`/privateroom/${roomId}`)
+  }
 
   // ================= UI =================
 
@@ -170,30 +210,107 @@ export default function Home() {
       {/* ---------------- MAIN ---------------- */}
       <main className="flex-1 overflow-y-auto px-4 py-6 max-w-4xl mx-auto w-full">
 
-        <p className="text-gray-400 text-sm mb-6">
-          {filteredUsers.length} {filteredUsers.length === 1 ? "user" : "users"} found
-        </p>
+        {/* Private Rooms Section */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <Lock className="w-5 h-5 text-blue-400" />
+              Private Rooms
+            </h2>
+            <button
+              onClick={() => navigate("/privateroomsview")}
+              className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+            >
+              View All →
+            </button>
+          </div>
 
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mb-4"></div>
-            <p className="text-gray-400">Loading users...</p>
+          {loadingPrivateRooms ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            </div>
+          ) : privateRooms.length === 0 ? (
+            <div className="bg-gray-800/30 rounded-xl p-6 text-center border border-dashed border-gray-700">
+              <Lock className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-400 mb-2">No private rooms available</p>
+              <p className="text-gray-500 text-sm">Be the first to create a private room</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+              {privateRooms.slice(0, 4).map((room) => (
+                <div
+                  key={room.id}
+                  onClick={() => handleRoomClick(room.id)}
+                  className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-4 border border-gray-700 hover:border-blue-500/50 hover:bg-gray-800/50 transition-all cursor-pointer group"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-900/30 border border-blue-500/30 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-900/50 transition-colors">
+                      <Lock className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-medium text-white truncate">{room.name}</h3>
+                        <span className="text-sm text-blue-400 bg-blue-900/30 px-2 py-1 rounded">
+                          KSH {room.price || "0"}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-400 truncate">
+                        {room.description || "No description"}
+                      </p>
+                      <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+                        <span className="truncate">Private Access</span>
+                        <button className="text-blue-400 hover:text-blue-300 opacity-0 group-hover:opacity-100 transition-opacity">
+                          Join →
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Divider */}
+        <div className="relative mb-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-800"></div>
           </div>
-        ) : filteredUsers.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">
-            No users found
+          <div className="relative flex justify-center">
+            <span className="px-3 bg-gray-900 text-gray-500 text-sm flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Public Users
+            </span>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-6">
-            {filteredUsers.map((u) => (
-              <UserCard
-                key={u.id}
-                user={u}
-                onClick={() => navigate(`/chat/${u.id}`)}
-              />
-            ))}
-          </div>
-        )}
+        </div>
+
+        {/* Users Section */}
+        <div className="mb-2">
+          <p className="text-gray-400 text-sm mb-4">
+            {filteredUsers.length} {filteredUsers.length === 1 ? "user" : "users"} found
+          </p>
+
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mb-4"></div>
+              <p className="text-gray-400">Loading users...</p>
+            </div>
+          ) : filteredUsers.length === 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              No users found
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-6">
+              {filteredUsers.map((u) => (
+                <UserCard
+                  key={u.id}
+                  user={u}
+                  onClick={() => navigate(`/chat/${u.id}`)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
 
       </main>
 
