@@ -63,9 +63,11 @@ export default function Home() {
     if (!user) return
     setLoadingPrivateRooms(true)
 
+    // Add filter to exclude rooms created by the current user
     const { data, error } = await supabase
       .from("private_rooms")
       .select("id, name, description, price, created_by")
+      .neq("created_by", user.id) // Exclude rooms created by the current user
       .order("created_at", { ascending: false })
       .limit(10) // Show only recent rooms
 

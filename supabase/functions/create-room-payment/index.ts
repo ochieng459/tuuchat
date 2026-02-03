@@ -7,7 +7,7 @@ serve(async (req) => {
     return new Response(null, {
       status: 204,
       headers: {
-        "Access-Control-Allow-Origin": "tuuchat.netlify.app",
+        "Access-Control-Allow-Origin": "https://tuuchat.netlify.app",
         "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
       },

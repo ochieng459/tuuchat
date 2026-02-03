@@ -11,13 +11,14 @@ import Groups from "./pages/Groups";
 import Profile from "./pages/Profile";
 import UserProfile from "./pages/UserProfile";
 import Notifications from "./pages/Notifications";
-import PrivateRoomsView from "./pages/PrivateRoomsView"; // <-- Added
-import PrivateRoomChat from "./pages/PrivateRoomChat"; // <-- New chat page
+import PrivateRoomsView from "./pages/PrivateRoomsView";
+import PrivateRoomChat from "./pages/PrivateRoomChat";
+import PrivateRoomDetails from "./pages/PrivateRoomDetails"; // <-- Added import
 
 // ✅ Help Pages
 import Help from "./pages/Help";
 import MyTickets from "./pages/MyTickets";
-import TicketChat from "./pages/TicketChat"; // ✅ new page for viewing/replying to a ticket
+import TicketChat from "./pages/TicketChat";
 
 import "./index.css";
 import { useAuth } from "./hooks/useAuth";
@@ -26,13 +27,19 @@ export default function App() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <p>Loading...</p>;
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
+          <p className="text-gray-300">Loading tuuChat...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
     <BrowserRouter>
       <Routes>
-
         {/* Public routes */}
         <Route
           path="/"
@@ -88,6 +95,10 @@ export default function App() {
           path="/privateroomchat/:id"
           element={user ? <PrivateRoomChat /> : <Navigate to="/" />}
         />
+        <Route
+          path="/privateroomdetails/:id"
+          element={user ? <PrivateRoomDetails /> : <Navigate to="/" />}
+        />
 
         {/* Profiles */}
         <Route
@@ -98,6 +109,7 @@ export default function App() {
           path="/users/:id"
           element={user ? <UserProfile /> : <Navigate to="/" />}
         />
+        
 
         {/* ✅ Help / Support Pages */}
         <Route
@@ -115,6 +127,11 @@ export default function App() {
           element={user ? <TicketChat /> : <Navigate to="/" />}
         />
 
+        {/* Catch-all route */}
+        <Route
+          path="*"
+          element={<Navigate to={user ? "/home" : "/"} />}
+        />
       </Routes>
     </BrowserRouter>
   );

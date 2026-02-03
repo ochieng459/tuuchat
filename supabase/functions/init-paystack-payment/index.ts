@@ -1,78 +1,73 @@
-import { serve } from "https://deno.land/std/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js";
+import axios from "axios";
 
-serve(async (req) => {
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+Deno.serve(async (req) => {
+  // 1. Handle Preflight OPTIONS request
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   try {
-    // ---------------- Handle CORS Preflight ----------------
-    if (req.method === "OPTIONS") {
-      return new Response(null, {
-        status: 204,
-        headers: {
-          "Access-Control-Allow-Origin": "tuuchat.netlify.app",
-          "Access-Control-Allow-Methods": "POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        },
+    // 2. Only allow POST for the actual logic
+    if (req.method !== "POST") {
+      return new Response(JSON.stringify({ error: "Method not allowed" }), {
+        status: 405,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // ---------------- Only allow POST ----------------
-    if (req.method !== "POST") {
-      return new Response("Method Not Allowed", { status: 405 });
+    const body = await req.json();
+    const { user_id, room_id, email, amount } = body;
+
+    if (!user_id || !room_id || !email) {
+      return new Response(JSON.stringify({ message: "Missing fields" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    const txRef = `${room_id}-${user_id}-${Date.now()}`;
+    const amountInt = Math.round((amount || 1000) * 100);
+
+    const paystackRes = await axios.post(
+      "https://api.paystack.co/transaction/initialize",
+      {
+        email,
+        amount: amountInt,
+        reference: txRef,
+        metadata: { user_id, room_id },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${Deno.env.get("PAYSTACK_SECRET_KEY")}`,
+          "Content-Type": "application/json",
+        },
+      }
     );
 
-    // Parse request body
-    const { user_id, room_id } = await req.json();
-    if (!user_id || !room_id) {
-      return new Response("Missing user_id or room_id", { status: 400 });
-    }
-
-    // Get room price
-    const { data: room, error: roomError } = await supabase
-      .from("private_rooms")
-      .select("price")
-      .eq("id", room_id)
-      .single();
-
-    if (roomError || !room) {
-      return new Response("Room not found", { status: 404 });
-    }
-
-    // Generate temporary payment reference
-    const paymentRef = crypto.randomUUID();
-
-    // Insert pending payment record
-    await supabase.from("room_access").insert({
-      user_id,
-      room_id,
-      amount: room.price,
-      payment_ref: paymentRef,
-      status: "pending",
-    });
-
-    // Return payment details with CORS headers
-    return new Response(JSON.stringify({
-      payment_ref: paymentRef,
-      amount: room.price,
-    }), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
-    });
-
+    return new Response(
+      JSON.stringify({
+        checkout_url: paystackRes.data.data.authorization_url,
+        reference: txRef,
+      }),
+      { 
+        status: 200, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      }
+    );
   } catch (err) {
-    console.error("Payment init error:", err);
-    return new Response("Internal Server Error", {
-      status: 500,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-      },
-    });
+    console.error(err.response?.data || err.message);
+    return new Response(
+      JSON.stringify({ message: "Payment initialization failed", error: err.message }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      }
+    );
   }
 });

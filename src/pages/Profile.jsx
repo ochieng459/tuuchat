@@ -12,12 +12,14 @@ import {
   LogOut, 
   ArrowLeft, 
   Users,
-  Image as ImageIcon,
+  Image as ImageIcon,  // Make sure this is imported
   Mail,
   Calendar,
   Globe,
   Plus,
-  Lock
+  Lock,
+  Eye,
+  Loader2  // Add this import
 } from "lucide-react"
 
 export default function Profile() {
@@ -51,6 +53,8 @@ export default function Profile() {
   const [editingRoomDescription, setEditingRoomDescription] = useState("")
   const [editingRoomPriceId, setEditingRoomPriceId] = useState(null)
   const [editingRoomPrice, setEditingRoomPrice] = useState("")
+  const [editingRoomImageId, setEditingRoomImageId] = useState(null)
+  const [uploadingRoomImage, setUploadingRoomImage] = useState(false)
 
   /* =========================
      FETCH PROFILE
@@ -150,6 +154,61 @@ export default function Profile() {
     
     alert("Private room created successfully!")
   }
+
+  //photo upload
+// Add this function to handle room image change
+const handleRoomImageChange = async (e, roomId) => {
+  const file = e.target.files[0]
+  if (!file) return
+
+  setEditingRoomImageId(roomId)
+  setUploadingRoomImage(true)
+
+  try {
+    const fileName = `private_rooms/${roomId}-${Date.now()}-${file.name}`
+
+    // Upload to Supabase storage
+    const { error: uploadError } = await supabase.storage
+      .from("avatars")
+      .upload(fileName, file, { upsert: true })
+
+    if (uploadError) {
+      console.error("Upload error:", uploadError)
+      alert("Failed to upload image")
+      setEditingRoomImageId(null)
+      setUploadingRoomImage(false)
+      return
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from("avatars")
+      .getPublicUrl(fileName)
+
+    // Update room with new image URL
+    await supabase
+      .from("private_rooms")
+      .update({ 
+        image_url: urlData.publicUrl,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", roomId)
+
+    // Update local state
+    setPrivateRooms((prev) =>
+      prev.map((room) =>
+        room.id === roomId ? { ...room, image_url: urlData.publicUrl } : room
+      )
+    )
+
+  } catch (err) {
+    console.error("Error updating room image:", err)
+    alert("Failed to update room image")
+  } finally {
+    setEditingRoomImageId(null)
+    setUploadingRoomImage(false)
+  }
+}
 
   /* =========================
      RENAME PRIVATE ROOM
@@ -491,189 +550,249 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Private Rooms Section */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-              <Lock className="w-6 h-6 text-blue-400" />
-              My Private Rooms
-            </h3>
-            <button
-              onClick={() => setShowPrivateRoomModal(true)}
-              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-medium transition-all flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Create Private Room
-            </button>
-          </div>
+    {/* Private Rooms Section */}
+<div className="mb-8">
+  <div className="flex items-center justify-between mb-6">
+    <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+      <Lock className="w-6 h-6 text-blue-400" />
+      My Private Rooms
+    </h3>
+    <button
+      onClick={() => setShowPrivateRoomModal(true)}
+      className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-medium transition-all flex items-center gap-2"
+    >
+      <Plus className="w-4 h-4" />
+      Create Private Room
+    </button>
+  </div>
 
-          {privateRooms.length === 0 ? (
-            <div className="bg-gray-800/30 rounded-2xl p-12 text-center border border-dashed border-gray-700">
-              <Lock className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400 text-lg mb-2">No private rooms yet</p>
-              <p className="text-gray-500 text-sm mb-6">Create private rooms with paid access for exclusive content</p>
-              <button
-                onClick={() => setShowPrivateRoomModal(true)}
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-medium transition-all"
-              >
-                Create Private Room
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {privateRooms.map((room) => (
-                <div
-                  key={room.id}
-                  className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-5 border border-gray-700 hover:border-blue-500/30 transition-all"
-                >
-                  {/* Room Header with Edit Button */}
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className="w-12 h-12 rounded-full bg-blue-900/30 border border-blue-500/30 flex items-center justify-center">
-                      <Lock className="w-6 h-6 text-blue-400" />
-                    </div>
-                    
-                    <div className="flex-1">
-                      {editingRoomId === room.id ? (
-                        <div className="flex items-center gap-2 mb-2">
-                          <input
-                            value={editingRoomName}
-                            onChange={(e) => setEditingRoomName(e.target.value)}
-                            className="flex-1 px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                            placeholder="Room name"
-                          />
-                          <button
-                            onClick={() => handleRenamePrivateRoom(room.id)}
-                            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm flex items-center gap-1"
-                          >
-                            <Save className="w-3 h-3" />
-                            Save
-                          </button>
-                          <button
-                            onClick={() => setEditingRoomId(null)}
-                            className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-lg font-medium text-white">{room.name}</h4>
-                          <button
-                            onClick={() => {
-                              setEditingRoomId(room.id)
-                              setEditingRoomName(room.name)
-                            }}
-                            className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Room Price with Edit Button */}
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-400">Price</span>
-                      {editingRoomPriceId === room.id ? (
-                        <button
-                          onClick={() => handleUpdatePrivateRoomPrice(room.id)}
-                          className="text-green-400 hover:text-green-300 text-sm flex items-center gap-1"
-                        >
-                          <Save className="w-3 h-3" />
-                          Save Price
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setEditingRoomPriceId(room.id)
-                            setEditingRoomPrice(room.price?.toString() || "0")
-                          }}
-                          className="text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1"
-                        >
-                          <Edit2 className="w-3 h-3" />
-                          Edit Price
-                        </button>
-                      )}
-                    </div>
-
-                    {editingRoomPriceId === room.id ? (
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
-                          KSH
-                        </span>
-                        <input
-                          type="number"
-                          value={editingRoomPrice}
-                          onChange={(e) => setEditingRoomPrice(e.target.value)}
-                          className="w-full pl-12 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                          placeholder="0.00"
-                          min="0"
-                          step="0.01"
-                        />
-                      </div>
-                    ) : (
-                      <p className="text-sm text-blue-400 bg-gray-900/30 rounded-lg p-3">
-                        KSH {room.price || "0"}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Room Description with Edit Button */}
-                  <div className="mt-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-400">Description</span>
-                      {editingRoomDescriptionId === room.id ? (
-                        <button
-                          onClick={() => handleUpdatePrivateRoomDescription(room.id)}
-                          className="text-green-400 hover:text-green-300 text-sm flex items-center gap-1"
-                        >
-                          <Save className="w-3 h-3" />
-                          Save Description
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setEditingRoomDescriptionId(room.id)
-                            setEditingRoomDescription(room.description || "")
-                          }}
-                          className="text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1"
-                        >
-                          <Edit2 className="w-3 h-3" />
-                          Edit Description
-                        </button>
-                      )}
-                    </div>
-
-                    {editingRoomDescriptionId === room.id ? (
-                      <div className="space-y-2">
-                        <textarea
-                          value={editingRoomDescription}
-                          onChange={(e) => setEditingRoomDescription(e.target.value)}
-                          className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                          rows="3"
-                          placeholder="Enter room description..."
-                        />
-                      </div>
-                    ) : (
-                      <p className="text-gray-300 text-sm p-3 bg-gray-900/30 rounded-lg">
-                        {room.description || "No description provided"}
-                      </p>
-                    )}
-                  </div>
-                  
-                  <div className="flex items-center justify-between text-xs text-gray-500 mt-4">
-                    <span>Created: {new Date(room.created_at).toLocaleDateString()}</span>
-                    <span className="px-2 py-1 bg-blue-900/30 text-blue-300 rounded">
-                      Paid Access
-                    </span>
+  {privateRooms.length === 0 ? (
+    <div className="bg-gray-800/30 rounded-2xl p-12 text-center border border-dashed border-gray-700">
+      <Lock className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+      <p className="text-gray-400 text-lg mb-2">No private rooms yet</p>
+      <p className="text-gray-500 text-sm mb-6">Create private rooms with paid access for exclusive content</p>
+      <button
+        onClick={() => setShowPrivateRoomModal(true)}
+        className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-medium transition-all"
+      >
+        Create Private Room
+      </button>
+    </div>
+  ) : (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {privateRooms.map((room) => (
+        <div
+          key={room.id}
+          className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-5 border border-gray-700 hover:border-blue-500/30 transition-all"
+        >
+          {/* Room Header with Edit Button and Image Upload */}
+          <div className="flex items-start gap-4 mb-4">
+            {/* Room Image with Upload Option */}
+            <div className="relative group">
+              {editingRoomImageId === room.id ? (
+                <div className="w-12 h-12 rounded-full bg-blue-900/30 border-2 border-blue-500/50 flex items-center justify-center overflow-hidden">
+                  {room.image_url ? (
+                    <img
+                      src={room.image_url}
+                      alt={room.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Lock className="w-6 h-6 text-blue-400" />
+                  )}
+                  <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center">
+                    <Loader2 className="w-4 h-4 text-white animate-spin mb-1" />
+                    <span className="text-xs text-white">Uploading...</span>
                   </div>
                 </div>
-              ))}
+              ) : (
+                <div className="relative">
+                  <div className="w-12 h-12 rounded-full bg-blue-900/30 border-2 border-blue-500/30 flex items-center justify-center overflow-hidden">
+                    {room.image_url ? (
+                      <img
+                        src={room.image_url}
+                        alt={room.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Lock className="w-6 h-6 text-blue-400" />
+                    )}
+                  </div>
+                  <label className="absolute -bottom-1 -right-1 bg-gray-800 p-1 rounded-full cursor-pointer hover:bg-gray-700 transition-colors group-hover:opacity-100 opacity-70">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleRoomImageChange(e, room.id)}
+                      disabled={editingRoomImageId === room.id}
+                    />
+                    <ImageIcon className="w-3 h-3 text-gray-300" />
+                  </label>
+                </div>
+              )}
             </div>
-          )}
+            
+            <div className="flex-1">
+              {editingRoomId === room.id ? (
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    value={editingRoomName}
+                    onChange={(e) => setEditingRoomName(e.target.value)}
+                    className="flex-1 px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    placeholder="Room name"
+                  />
+                  <button
+                    onClick={() => handleRenamePrivateRoom(room.id)}
+                    className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm flex items-center gap-1"
+                  >
+                    <Save className="w-3 h-3" />
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setEditingRoomId(null)}
+                    className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <h4 className="text-lg font-medium text-white">{room.name}</h4>
+                  <button
+                    onClick={() => {
+                      setEditingRoomId(room.id)
+                      setEditingRoomName(room.name)
+                    }}
+                    className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Room Price with Edit Button */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-400">Price</span>
+              {editingRoomPriceId === room.id ? (
+                <button
+                  onClick={() => handleUpdatePrivateRoomPrice(room.id)}
+                  className="text-green-400 hover:text-green-300 text-sm flex items-center gap-1"
+                >
+                  <Save className="w-3 h-3" />
+                  Save Price
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    setEditingRoomPriceId(room.id)
+                    setEditingRoomPrice(room.price?.toString() || "0")
+                  }}
+                  className="text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1"
+                >
+                  <Edit2 className="w-3 h-3" />
+                  Edit Price
+                </button>
+              )}
+            </div>
+
+            {editingRoomPriceId === room.id ? (
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
+                  KSH
+                </span>
+                <input
+                  type="number"
+                  value={editingRoomPrice}
+                  onChange={(e) => setEditingRoomPrice(e.target.value)}
+                  className="w-full pl-12 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder="0.00"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+            ) : (
+              <p className="text-sm text-blue-400 bg-gray-900/30 rounded-lg p-3">
+                KSH {room.price || "0"}
+              </p>
+            )}
+          </div>
+
+          {/* Room Description with Edit Button */}
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-400">Description</span>
+              {editingRoomDescriptionId === room.id ? (
+                <button
+                  onClick={() => handleUpdatePrivateRoomDescription(room.id)}
+                  className="text-green-400 hover:text-green-300 text-sm flex items-center gap-1"
+                >
+                  <Save className="w-3 h-3" />
+                  Save Description
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    setEditingRoomDescriptionId(room.id)
+                    setEditingRoomDescription(room.description || "")
+                  }}
+                  className="text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1"
+                >
+                  <Edit2 className="w-3 h-3" />
+                  Edit Description
+                </button>
+              )}
+            </div>
+
+            {editingRoomDescriptionId === room.id ? (
+              <div className="space-y-2">
+                <textarea
+                  value={editingRoomDescription}
+                  onChange={(e) => setEditingRoomDescription(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  rows="3"
+                  placeholder="Enter room description..."
+                />
+              </div>
+            ) : (
+              <p className="text-gray-300 text-sm p-3 bg-gray-900/30 rounded-lg">
+                {room.description || "No description provided"}
+              </p>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2 mt-4">
+            <button
+              onClick={() => navigate(`/privateroomchat/${room.id}`)}
+              className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg font-medium transition-all flex items-center justify-center gap-2"
+            >
+              <Users className="w-4 h-4" />
+              Enter Chat
+            </button>
+            
+            <button
+              onClick={() => navigate(`/privateroom/${room.id}`)}
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-medium transition-all flex items-center gap-2"
+            >
+              <Eye className="w-4 h-4" />
+              View
+            </button>
+          </div>
+          
+          <div className="flex items-center justify-between text-xs text-gray-500 mt-4">
+            <span>Created: {new Date(room.created_at).toLocaleDateString()}</span>
+            <span className="px-2 py-1 bg-blue-900/30 text-blue-300 rounded">
+              Paid Access
+            </span>
+          </div>
         </div>
+      ))}
+    </div>
+  )}
+</div>
 
         {/* My Groups Section */}
         <div className="mb-8">
