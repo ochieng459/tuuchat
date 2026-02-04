@@ -219,12 +219,7 @@ export default function Home() {
               <Lock className="w-5 h-5 text-blue-400" />
               Private Rooms
             </h2>
-            <button
-              onClick={() => navigate("/privateroomsview")}
-              className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
-            >
-              View All →
-            </button>
+            
           </div>
 
           {loadingPrivateRooms ? (

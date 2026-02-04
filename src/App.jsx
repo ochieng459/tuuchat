@@ -13,12 +13,17 @@ import UserProfile from "./pages/UserProfile";
 import Notifications from "./pages/Notifications";
 import PrivateRoomsView from "./pages/PrivateRoomsView";
 import PrivateRoomChat from "./pages/PrivateRoomChat";
-import PrivateRoomDetails from "./pages/PrivateRoomDetails"; // <-- Added import
+import PrivateRoomDetails from "./pages/PrivateRoomDetails";
+import Wallets from "./pages/Wallets";
 
 // ✅ Help Pages
 import Help from "./pages/Help";
 import MyTickets from "./pages/MyTickets";
 import TicketChat from "./pages/TicketChat";
+
+// ✅ Forgot Password Flow
+import ConfirmEmailReset from "./pages/ConfirmEmailReset";
+import NewPassword from "./pages/NewPassword";
 
 import "./index.css";
 import { useAuth } from "./hooks/useAuth";
@@ -40,7 +45,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public routes */}
+        {/* ================= PUBLIC ================= */}
         <Route
           path="/"
           element={!user ? <Login /> : <Navigate to="/home" />}
@@ -50,17 +55,27 @@ export default function App() {
           element={!user ? <Signup /> : <Navigate to="/home" />}
         />
 
-        {/* Protected routes */}
+        {/* ================= FORGOT PASSWORD ================= */}
+<Route
+  path="/confirm-email-reset"
+  element={<ConfirmEmailReset />}
+/>
+
+<Route
+  path="/new-password"
+  element={<NewPassword />}
+/>
+
+
+        {/* ================= PROTECTED ================= */}
         <Route
           path="/home"
           element={user ? <Home /> : <Navigate to="/" />}
         />
-
         <Route
           path="/notifications"
           element={user ? <Notifications /> : <Navigate to="/" />}
         />
-
         <Route
           path="/private"
           element={user ? <PrivateUsers /> : <Navigate to="/" />}
@@ -70,7 +85,7 @@ export default function App() {
           element={user ? <Groups /> : <Navigate to="/" />}
         />
 
-        {/* Chats */}
+        {/* ================= CHATS ================= */}
         <Route
           path="/chat/:id"
           element={user ? <Chat /> : <Navigate to="/" />}
@@ -79,14 +94,12 @@ export default function App() {
           path="/group/:id"
           element={user ? <GroupChat /> : <Navigate to="/" />}
         />
-
-        {/* ✅ Group View Page */}
         <Route
           path="/groups/:id"
           element={user ? <GroupView /> : <Navigate to="/" />}
         />
 
-        {/* ✅ Private Room Pages */}
+        {/* ================= PRIVATE ROOMS ================= */}
         <Route
           path="/privateroom/:id"
           element={user ? <PrivateRoomsView /> : <Navigate to="/" />}
@@ -100,7 +113,7 @@ export default function App() {
           element={user ? <PrivateRoomDetails /> : <Navigate to="/" />}
         />
 
-        {/* Profiles */}
+        {/* ================= PROFILES ================= */}
         <Route
           path="/profile"
           element={user ? <Profile /> : <Navigate to="/" />}
@@ -109,9 +122,14 @@ export default function App() {
           path="/users/:id"
           element={user ? <UserProfile /> : <Navigate to="/" />}
         />
-        
 
-        {/* ✅ Help / Support Pages */}
+        {/* ✅ WALLET PAGE */}
+        <Route
+          path="/wallet"
+          element={user ? <Wallets /> : <Navigate to="/" />}
+        />
+
+        {/* ================= HELP ================= */}
         <Route
           path="/help"
           element={user ? <Help /> : <Navigate to="/" />}
@@ -120,14 +138,12 @@ export default function App() {
           path="/my-tickets"
           element={user ? <MyTickets /> : <Navigate to="/" />}
         />
-
-        {/* ✅ Ticket Chat Page */}
         <Route
           path="/ticket/:id"
           element={user ? <TicketChat /> : <Navigate to="/" />}
         />
 
-        {/* Catch-all route */}
+        {/* ================= FALLBACK ================= */}
         <Route
           path="*"
           element={<Navigate to={user ? "/home" : "/"} />}

@@ -11,7 +11,8 @@ import {
   Eye,
   EyeOff,
   UserPlus,
-  Shield
+  Shield,
+  Key  // Added for forgot password icon
 } from "lucide-react"
 
 export default function Login() {
@@ -40,6 +41,10 @@ export default function Login() {
 
     setLoading(false)
     navigate("/home")
+  }
+
+  const handleForgotPassword = () => {
+    navigate("/confirm-email-reset")  // Updated to match the actual page name
   }
 
   return (
@@ -93,10 +98,20 @@ export default function Login() {
 
             {/* Password Field */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300 flex items-center gap-2">
-                <Lock className="w-4 h-4" />
-                Password
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-300 flex items-center gap-2">
+                  <Lock className="w-4 h-4" />
+                  Password
+                </label>
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="text-sm text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
+                >
+                  <Key className="w-3 h-3" />
+                  Forgot Password?
+                </button>
+              </div>
               <div className="relative group">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -117,15 +132,6 @@ export default function Login() {
                   ) : (
                     <Eye className="w-5 h-5" />
                   )}
-                </button>
-              </div>
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => alert("Forgot password feature coming soon!")}
-                  className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
-                >
-                  Forgot Password?
                 </button>
               </div>
             </div>
