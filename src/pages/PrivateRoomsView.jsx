@@ -67,27 +67,26 @@ export default function PrivateRoomsView() {
 
   // ✅ Check access function
   const checkAccess = async () => {
-  if (!userId || !id) return;
+    if (!userId || !id) return;
 
-  try {
-    setCheckingAccess(true);
+    try {
+      setCheckingAccess(true);
 
-    const res = await fetch(
-      `https://tuuchatserver-production.up.railway.app/api/rooms/${id}/access/${userId}`
-    );
+      const res = await fetch(
+        `https://tuuchatserver-production.up.railway.app/api/rooms/${id}/access/${userId}`
+      );
 
-    if (!res.ok) throw new Error("Failed to check access");
+      if (!res.ok) throw new Error("Failed to check access");
 
-    const data = await res.json();
-    setHasAccess(data.has_access === true);
-  } catch (err) {
-    console.error("Error checking access:", err);
-    setHasAccess(false);
-  } finally {
-    setCheckingAccess(false);
-  }
-};
-
+      const data = await res.json();
+      setHasAccess(data.has_access === true);
+    } catch (err) {
+      console.error("Error checking access:", err);
+      setHasAccess(false);
+    } finally {
+      setCheckingAccess(false);
+    }
+  };
 
   // ✅ Poll for room access
   useEffect(() => {
@@ -311,7 +310,7 @@ export default function PrivateRoomsView() {
             </div>
           </div>
 
-          {/* Status Info */}
+          {/* Status Info - Only show the access status without payment info when access is granted */}
           <div className="space-y-4">
             <div className="flex items-start gap-4">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${hasAccess ? 'bg-green-900/20' : 'bg-gray-800'}`}>
@@ -332,18 +331,21 @@ export default function PrivateRoomsView() {
               </div>
             </div>
 
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-full bg-blue-900/20 flex items-center justify-center flex-shrink-0">
-                <CreditCard className="w-5 h-5 text-blue-400" />
+            {/* Only show Payment Required section when user doesn't have access */}
+            {!hasAccess && (
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-blue-900/20 flex items-center justify-center flex-shrink-0">
+                  <CreditCard className="w-5 h-5 text-blue-400" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-white">Payment Required</p>
+                  <p className="text-sm text-gray-400">
+                    One-time payment of <span className="text-blue-400 font-semibold">KES {room.price}</span> to gain permanent access.
+                    Payment verification may take a few moments.
+                  </p>
+                </div>
               </div>
-              <div className="flex-1">
-                <p className="font-medium text-white">Payment Required</p>
-                <p className="text-sm text-gray-400">
-                  One-time payment of <span className="text-blue-400 font-semibold">KES {room.price}</span> to gain permanent access.
-                  Payment verification may take a few moments.
-                </p>
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -422,7 +424,7 @@ export default function PrivateRoomsView() {
             </button>
           </div>
           <p className="text-xs text-gray-600 mt-3">
-            Note: Payment verification may take up to 30 seconds after successful payment.
+            Note: Payment verification may take up to 20 seconds after successful payment.
           </p>
         </div>
       </main>
