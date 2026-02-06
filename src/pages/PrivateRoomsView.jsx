@@ -67,22 +67,27 @@ export default function PrivateRoomsView() {
 
   // ✅ Check access function
   const checkAccess = async () => {
-    if (!userId) return;
-    
-    try {
-      setCheckingAccess(true);
-      const res = await fetch(
-        `https://tuuchatserver-production.up.railway.app/api/rooms/${id}`
-      );
-      if (!res.ok) throw new Error("Failed to check access");
-      const data = await res.json();
-      setHasAccess(data.has_access === true);
-    } catch (err) {
-      console.error("Error checking access:", err);
-    } finally {
-      setCheckingAccess(false);
-    }
-  };
+  if (!userId || !id) return;
+
+  try {
+    setCheckingAccess(true);
+
+    const res = await fetch(
+      `https://tuuchatserver-production.up.railway.app/api/rooms/${id}/access/${userId}`
+    );
+
+    if (!res.ok) throw new Error("Failed to check access");
+
+    const data = await res.json();
+    setHasAccess(data.has_access === true);
+  } catch (err) {
+    console.error("Error checking access:", err);
+    setHasAccess(false);
+  } finally {
+    setCheckingAccess(false);
+  }
+};
+
 
   // ✅ Poll for room access
   useEffect(() => {
