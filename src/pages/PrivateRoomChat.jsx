@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../services/supabase";
-import { ArrowLeft, Eye, Send, Lock, User, ImageIcon, Loader2, Clock, X, VideoIcon } from "lucide-react";
+import { ArrowLeft, Eye, Send, Lock, User, ImageIcon, Loader2, Clock, X, VideoIcon, Check, CheckCheck, Trash2 } from "lucide-react";
 
 export default function PrivateRoomChat() {
   const { id } = useParams(); // room ID
@@ -22,6 +22,9 @@ export default function PrivateRoomChat() {
   const [imageToSend, setImageToSend] = useState(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  
+  // Track optimistic messages to avoid duplicates
+  const [optimisticIds, setOptimisticIds] = useState(new Set());
 
   // ---------------- Scroll to bottom ----------------
   const scrollToBottom = () => {
@@ -103,7 +106,17 @@ export default function PrivateRoomChat() {
 
     const { data, error } = await supabase
       .from("private_room_messages")
-      .select("id, user_id, content, media_path, media_type, view_once, created_at, profiles(username, avatar_url)")
+      .select(`
+        id, 
+        user_id, 
+        content, 
+        media_path, 
+        media_type, 
+        view_once, 
+        created_at,
+        is_read,
+        profiles:user_id (username, avatar_url)
+      `)
       .eq("room_id", id)
       .order("created_at", { ascending: true });
 
@@ -128,36 +141,119 @@ export default function PrivateRoomChat() {
     }
   };
 
-  // ---------------- Send message ----------------
+  // ---------------- Send message (FIXED Optimistic UI) ----------------
   const sendMessage = async () => {
     if (!newMessage.trim() || !userId) return;
 
     setSending(true);
 
+    // Generate a temporary ID for optimistic update
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Optimistic update
+    const tempMessage = {
+      id: tempId,
+      room_id: id,
+      user_id: userId,
+      content: newMessage.trim(),
+      media_path: null,
+      media_type: null,
+      view_once: false,
+      created_at: new Date().toISOString(),
+      is_read: false,
+      profiles: userProfile,
+      is_sending: true // Flag to show clock/tick
+    };
+
+    setMessages((prev) => [...prev, tempMessage]);
+    setOptimisticIds(prev => new Set([...prev, tempId]));
+    setNewMessage("");
+    scrollToBottom();
+
+    // Actual send to database
     const { data, error } = await supabase
       .from("private_room_messages")
       .insert([{ 
         room_id: id, 
         user_id: userId, 
-        content: newMessage 
+        content: newMessage.trim()
       }])
-      .select()
+      .select(`
+        id, 
+        user_id, 
+        content, 
+        media_path, 
+        media_type, 
+        view_once, 
+        created_at,
+        is_read,
+        profiles:user_id (username, avatar_url)
+      `)
       .single();
+
+    setSending(false);
 
     if (error) {
       console.error("Send message error", error);
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(msg => msg.id !== tempId));
+      setOptimisticIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(tempId);
+        return newSet;
+      });
     } else {
-      // Add user profile to the new message
-      const newMsgWithProfile = {
-        ...data,
-        profiles: userProfile
-      };
-      setMessages((prev) => [...prev, newMsgWithProfile]);
-      setNewMessage("");
+      // Replace optimistic message with real one
+      setMessages(prev => {
+        const newMessages = prev.filter(msg => msg.id !== tempId);
+        // Add public URL if needed
+        const messageWithUrl = data.media_path ? {
+          ...data,
+          public_url: supabase.storage.from("massage-media").getPublicUrl(data.media_path).data.publicUrl
+        } : data;
+        return [...newMessages, messageWithUrl];
+      });
+      
+      setOptimisticIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(tempId);
+        return newSet;
+      });
       scrollToBottom();
     }
+  };
 
-    setSending(false);
+  /* ---------------- DELETE MESSAGE ---------------- */
+  const deleteMessage = async (messageId) => {
+    if (!window.confirm("Are you sure you want to delete this message?")) return;
+
+    const messageToDelete = messages.find(m => m.id === messageId);
+    
+    // Delete media from storage if exists
+    if (messageToDelete?.media_path) {
+      try {
+        await supabase.storage
+          .from("massage-media")
+          .remove([messageToDelete.media_path]);
+      } catch (error) {
+        console.error("Error deleting media:", error);
+      }
+    }
+
+    // Delete message from database
+    const { error } = await supabase
+      .from("private_room_messages")
+      .delete()
+      .eq("id", messageId);
+
+    if (error) {
+      console.error("Delete message error:", error);
+      alert("Failed to delete message");
+      return;
+    }
+
+    // Remove from local state
+    setMessages(prev => prev.filter(m => m.id !== messageId));
   };
 
   /* ---------------- IMAGE SELECTION ---------------- */
@@ -190,44 +286,48 @@ export default function PrivateRoomChat() {
 
     setUploadingImage(true);
 
-    try {
-      const fileExt = imageToSend.name.split('.').pop();
-      const fileName = `${crypto.randomUUID()}.${fileExt}`;
-      const path = `private-room-media/${id}/${fileName}`;
+    const tempId = `temp_media_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const fileExt = imageToSend.name.split('.').pop();
+    const fileName = `${crypto.randomUUID()}.${fileExt}`;
+    const path = `private-room-media/${id}/${fileName}`;
+    const mediaType = imageToSend.type.startsWith("image/") ? "image" : "video";
 
+    // Optimistic update
+    const tempMessage = {
+      id: tempId,
+      room_id: id,
+      user_id: userId,
+      content: "",
+      media_path: path,
+      media_type: mediaType,
+      view_once: false,
+      created_at: new Date().toISOString(),
+      is_read: false,
+      profiles: userProfile,
+      is_sending: true,
+      public_url: imagePreviewUrl // Use preview URL temporarily
+    };
+
+    setMessages((prev) => [...prev, tempMessage]);
+    setOptimisticIds(prev => new Set([...prev, tempId]));
+    scrollToBottom();
+
+    try {
+      // 1. Upload to storage
       const { error: uploadError } = await supabase.storage
         .from("massage-media")
         .upload(path, imageToSend);
 
       if (uploadError) {
-        console.error("Upload error:", uploadError.message);
-        alert("Failed to upload media");
-        return;
+        throw new Error(uploadError.message);
       }
 
       const { data: publicUrlData } = supabase.storage
         .from("massage-media")
         .getPublicUrl(path);
 
-      const mediaType = imageToSend.type.startsWith("image/") ? "image" : "video";
-
-      const tempMessage = {
-        id: crypto.randomUUID(),
-        room_id: id,
-        user_id: userId,
-        content: "",
-        media_path: path,
-        media_type: mediaType,
-        view_once: false, // Change to true if you want view-once in private rooms
-        created_at: new Date().toISOString(),
-        public_url: publicUrlData.publicUrl,
-        profiles: userProfile
-      };
-
-      setMessages((prev) => [...prev, tempMessage]);
-      scrollToBottom();
-
-      const { error: insertError } = await supabase
+      // 2. Insert to database
+      const { data: insertedData, error: insertError } = await supabase
         .from("private_room_messages")
         .insert({
           room_id: id,
@@ -235,19 +335,47 @@ export default function PrivateRoomChat() {
           content: "",
           media_path: path,
           media_type: mediaType,
-          view_once: false
-        });
+          view_once: false,
+          is_read: false
+        })
+        .select(`
+          id, 
+          user_id, 
+          content, 
+          media_path, 
+          media_type, 
+          view_once, 
+          created_at,
+          is_read,
+          profiles:user_id (username, avatar_url)
+        `)
+        .single();
 
       if (insertError) {
-        console.error("Insert error:", insertError.message);
-        setMessages((prev) => prev.filter(m => m.id !== tempMessage.id));
-        alert("Failed to send media");
+        throw new Error(insertError.message);
       }
+
+      // Replace optimistic message with real one
+      setMessages(prev => {
+        const newMessages = prev.filter(msg => msg.id !== tempId);
+        const messageWithUrl = {
+          ...insertedData,
+          public_url: publicUrlData.publicUrl
+        };
+        return [...newMessages, messageWithUrl];
+      });
 
     } catch (error) {
       console.error("Error sending media:", error);
-      alert("Error sending media");
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(msg => msg.id !== tempId));
+      alert("Failed to send media");
     } finally {
+      setOptimisticIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(tempId);
+        return newSet;
+      });
       setUploadingImage(false);
       cancelImageSend();
     }
@@ -265,12 +393,16 @@ export default function PrivateRoomChat() {
     });
 
     // Delete message after viewing (if view_once is true)
-    await supabase.from("private_room_messages").delete().eq("id", msg.id);
-    setMessages((p) => p.filter((m) => m.id !== msg.id));
+    if (msg.view_once) {
+      await supabase.from("private_room_messages").delete().eq("id", msg.id);
+      setMessages((p) => p.filter((m) => m.id !== msg.id));
+    }
   };
 
-  // ---------------- Realtime updates ----------------
+  // ---------------- Realtime updates (FIXED to avoid duplicates) ----------------
   useEffect(() => {
+    if (!id || !userId) return;
+
     const channel = supabase
       .channel(`private-room-${id}`)
       .on(
@@ -282,6 +414,16 @@ export default function PrivateRoomChat() {
           filter: `room_id=eq.${id}`,
         },
         async (payload) => {
+          // Skip if this is our own optimistic message
+          if (optimisticIds.has(payload.new.id)) {
+            return;
+          }
+
+          // Check if message already exists
+          if (messages.some(m => m.id === payload.new.id)) {
+            return;
+          }
+
           // Fetch profile for new message
           const { data: profile } = await supabase
             .from("profiles")
@@ -301,16 +443,36 @@ export default function PrivateRoomChat() {
           const newMsgWithProfile = {
             ...payload.new,
             profiles: profile,
-            public_url: publicUrl
+            public_url: publicUrl,
+            is_sending: false
           };
-          setMessages((prev) => [...prev, newMsgWithProfile]);
+          
+          setMessages((prev) => {
+            // Avoid duplicates
+            if (prev.some(m => m.id === payload.new.id)) return prev;
+            return [...prev, newMsgWithProfile];
+          });
           scrollToBottom();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "private_room_messages",
+        },
+        (payload) => {
+          // Remove deleted message from local state
+          setMessages(prev => prev.filter(m => m.id !== payload.old.id));
         }
       )
       .subscribe();
 
-    return () => supabase.removeChannel(channel);
-  }, [id]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id, userId, messages.length, optimisticIds]);
 
   // ---------------- Initial load ----------------
   useEffect(() => {
@@ -482,6 +644,7 @@ export default function PrivateRoomChat() {
           <div className="space-y-4 pb-20">
             {messages.map((message) => {
               const isSent = message.user_id === userId;
+              const isSending = message.is_sending;
               
               return (
                 <div
@@ -497,76 +660,101 @@ export default function PrivateRoomChat() {
                     />
                   </div>
 
-                  {/* Message Bubble */}
-                  <div className={`${isSent ? 'order-1' : 'order-2'} max-w-[70%]`}>
-                    <div className={`px-4 py-3 rounded-2xl ${
-                      isSent
-                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-br-none'
-                        : 'bg-gray-800/50 text-gray-100 rounded-bl-none'
-                    }`}>
-                      {!isSent && (
-                        <div className="font-medium text-xs text-gray-300 mb-1">
-                          {message.profiles?.username || "User"}
-                        </div>
-                      )}
-                      
-                      {message.media_type === "image" ? (
-                        <div className="mt-2">
-                          {message.view_once ? (
-                            <button
-                              className="flex items-center gap-2 px-4 py-2 bg-gray-900/50 hover:bg-gray-900/70 rounded-lg transition-colors"
-                              onClick={() => openViewOnceMedia(message)}
-                            >
-                              <ImageIcon className="w-5 h-5" />
-                              View photo (once)
-                            </button>
-                          ) : (
-                            <img
-                              src={message.public_url}
-                              alt="Sent"
-                              className="max-w-full rounded-lg mt-1 shadow-inner cursor-pointer hover:opacity-90 transition-opacity"
-                              loading="lazy"
-                              onClick={() => setPreviewImage({
-                                ...message,
-                                url: message.public_url
-                              })}
-                            />
-                          )}
-                        </div>
-                      ) : message.media_type === "video" ? (
-                        <div className="mt-2">
-                          {message.view_once ? (
-                            <button
-                              className="flex items-center gap-2 px-4 py-2 bg-gray-900/50 hover:bg-gray-900/70 rounded-lg transition-colors"
-                              onClick={() => openViewOnceMedia(message)}
-                            >
-                              <VideoIcon className="w-5 h-5" />
-                              View video (once)
-                            </button>
-                          ) : (
-                            <video
-                              src={message.public_url}
-                              controls
-                              className="max-w-full rounded-lg mt-1 shadow-inner"
-                            />
-                          )}
-                        </div>
-                      ) : (
-                        <div className="break-words">{message.content}</div>
-                      )}
-                    </div>
-                    
-                    {/* Timestamp */}
-                    <div className={`text-xs text-gray-500 mt-1 flex items-center gap-1 ${
-                      isSent ? 'justify-end' : 'justify-start'
-                    }`}>
-                      <Clock className="w-3 h-3" />
-                      {new Date(message.created_at).toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      })}
-                    </div>
-                  </div>
+                  {/* Message Bubble with always-visible delete icon for sender */}
+<div className={`${isSent ? 'order-1' : 'order-2'} max-w-[70%]`}>
+  <div className={`px-4 py-3 rounded-2xl ${
+    isSent
+      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-br-none'
+      : 'bg-gray-800/50 text-gray-100 rounded-bl-none'
+  } relative`}>
+    {/* Top row: username (if receiver) + time + delete */}
+    <div className="flex items-center justify-between mb-2">
+      <div className="text-xs opacity-80">
+        {!isSent && (
+          <span className="font-medium text-gray-300 mr-2">
+            {message.profiles?.username || "User"}
+          </span>
+        )}
+        <span className="text-white/70">
+          {new Date(message.created_at).toLocaleTimeString([], { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          })}
+        </span>
+      </div>
+      
+      {/* Read status + Delete button (for sent messages) */}
+      <div className="flex items-center gap-2">
+        {isSent && (
+          <>
+            <span className="flex items-center">
+              {isSending ? (
+                <Clock className="w-3 h-3 text-white/70 animate-pulse" />
+              ) : message.is_read ? (
+                <CheckCheck className="w-3 h-3 text-blue-300" />
+              ) : (
+                <Check className="w-3 h-3 text-white/70" />
+              )}
+            </span>
+            <button
+              onClick={() => deleteMessage(message.id)}
+              className="text-xs opacity-60 hover:opacity-100 hover:text-red-300 transition-opacity text-white/70 hover:text-white"
+              title="Delete message"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+    
+    {/* Message content */}
+    {message.media_type === "image" ? (
+      <div className="mt-1">
+        {message.view_once ? (
+          <button
+            className="flex items-center gap-2 px-4 py-2 bg-black/30 hover:bg-black/40 rounded-lg transition-colors w-full text-white"
+            onClick={() => openViewOnceMedia(message)}
+          >
+            <ImageIcon className="w-5 h-5" />
+            View photo (once)
+          </button>
+        ) : (
+          <img
+            src={message.public_url}
+            alt="Sent"
+            className="max-w-full rounded-lg shadow-inner cursor-pointer hover:opacity-90 transition-opacity"
+            loading="lazy"
+            onClick={() => setPreviewImage({
+              ...message,
+              url: message.public_url
+            })}
+          />
+        )}
+      </div>
+    ) : message.media_type === "video" ? (
+      <div className="mt-1">
+        {message.view_once ? (
+          <button
+            className="flex items-center gap-2 px-4 py-2 bg-black/30 hover:bg-black/40 rounded-lg transition-colors w-full text-white"
+            onClick={() => openViewOnceMedia(message)}
+          >
+            <VideoIcon className="w-5 h-5" />
+            View video (once)
+          </button>
+        ) : (
+          <video
+            src={message.public_url}
+            controls
+            className="max-w-full rounded-lg shadow-inner"
+          />
+        )}
+      </div>
+    ) : (
+      <div className="break-words text-white/90">{message.content}</div>
+    )}
+  </div>
+</div>
                 </div>
               );
             })}
