@@ -1,120 +1,128 @@
-import React from "react"
-import {
-  Pin,
-  X,
-  MessageCircle,
-  CheckCircle,
-  Clock,
-  UserMinus
-} from "lucide-react"
+import React, { useState } from "react";
+import { Heart, MessageCircle, User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../services/supabase"; // ✅ your folder path
+import avatarPlaceholder from "../assets/avatar-placeholder.png";
 
-export default function UserCard({
-  user,
-  isPrivate = false,
-  onAddToPrivate,
-  onRemove,
-  onClick
-}) {
+export default function UserCard({ user, currentUserId }) {
+  const navigate = useNavigate();
+  const [imgError, setImgError] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [liking, setLiking] = useState(false);
+
+  const avatarSrc =
+    !user.avatar_url || imgError ? avatarPlaceholder : user.avatar_url;
+
+  // ❤️ Like toggle
+  const handleLike = async (e) => {
+    e.stopPropagation();
+    if (!currentUserId || liking) return;
+
+    try {
+      setLiking(true);
+
+      if (!liked) {
+        await supabase.from("user_likes").insert({
+          user_id: currentUserId,
+          target_type: "user",
+          target_id: user.id,
+        });
+        setLiked(true);
+      } else {
+        await supabase
+          .from("user_likes")
+          .delete()
+          .eq("user_id", currentUserId)
+          .eq("target_type", "user")
+          .eq("target_id", user.id);
+
+        setLiked(false);
+      }
+    } catch (err) {
+      console.error("Like error:", err);
+    } finally {
+      setLiking(false);
+    }
+  };
+
+  // 💬 Go to chat
+  const goChat = (e) => {
+    e.stopPropagation();
+    navigate(`/chat/${user.id}`);
+  };
+
+  // 👤 Go to profile + log view
+  const goProfile = async (e) => {
+    e.stopPropagation();
+    navigate(`/users/${user.id}`);
+
+    if (currentUserId && currentUserId !== user.id) {
+      await supabase.from("profile_views").insert({
+        viewer_id: currentUserId,
+        profile_id: user.id,
+      });
+    }
+  };
+
   return (
-    <div
-      className="group bg-gray-800/50 backdrop-blur-sm rounded-xl p-3 border border-gray-700 hover:border-purple-500/30 transition-all duration-200 cursor-pointer w-full"
-      onClick={onClick}
-    >
-      {/* Online Status & Unread Badge Container */}
-      <div className="flex justify-between items-start mb-3">
-        {/* Online Status Indicator */}
-        <div className={`w-2 h-2 rounded-full ${user.is_online ? 'bg-green-500' : 'bg-gray-500'}`} />
-        
-        {/* Unread Message Badge */}
-        {user.unreadCount > 0 && (
+    <div className="relative group w-full h-64 rounded-xl overflow-hidden border border-gray-700 hover:border-purple-500/40 transition-all cursor-pointer">
+
+      {/* Full Card Image */}
+      <img
+        src={avatarSrc}
+        alt={user.username}
+        onError={() => setImgError(true)}
+        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+      />
+
+      {/* Gradient Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+
+      {/* 🔔 Unread Badge (Top Right) */}
+      {user.unreadCount > 0 && (
+        <div className="absolute top-2 right-2">
           <div className="relative">
             <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75"></div>
-            <div className="relative bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
-              {user.unreadCount > 9 ? '9+' : user.unreadCount}
+            <div className="relative bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shadow-lg">
+              {user.unreadCount > 9 ? "9+" : user.unreadCount}
             </div>
           </div>
-        )}
-      </div>
-
-      {/* User Avatar */}
-      <div className="relative mx-auto mb-3">
-        <div className="w-14 h-14 rounded-full border-2 border-purple-500/20 p-0.5 group-hover:border-purple-500/40 transition-colors mx-auto">
-          <img
-            src={user.avatar_url || "https://via.placeholder.com/56"}
-            alt={user.username}
-            className="w-full h-full rounded-full object-cover"
-          />
         </div>
-        
-        {/* Active Status Ring for online users */}
-        {user.is_online && (
-          <div className="absolute inset-0 rounded-full border border-green-500/30 animate-ping"></div>
-        )}
-      </div>
+      )}
 
-      {/* User Info */}
-      <div className="text-center mb-3">
-        <h3 className="font-medium text-white text-sm truncate group-hover:text-purple-300 transition-colors px-1">
+      {/* Username */}
+      <div className="absolute bottom-12 left-3 right-3">
+        <h3 className="text-white font-semibold text-sm truncate">
           {user.username}
         </h3>
-        
-        {/* Status Text */}
-        <div className="mt-1">
-          {user.is_online ? (
-            <span className="inline-flex items-center justify-center gap-1 text-[10px] text-green-400">
-              <CheckCircle className="w-2.5 h-2.5" />
-              Online
-            </span>
-          ) : (
-            <span className="text-[10px] text-gray-500">Offline</span>
-          )}
-        </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex gap-1.5">
-        {/* Message Button - Always visible */}
-        <button
-          className="flex-1 px-2 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-[10px] font-medium transition-colors flex items-center justify-center gap-1"
-          onClick={(e) => {
-            e.stopPropagation()
-            onClick?.()
-          }}
-          title="Message"
-        >
-          <MessageCircle className="w-3 h-3" />
-        </button>
+     {/* Bottom Action Bar */}
+<div className="absolute bottom-0 left-0 right-0 p-2 flex gap-2 items-center bg-black/40 backdrop-blur-sm">
 
-        {/* Pin/Remove Button */}
-        {!isPrivate && onAddToPrivate && (
-          <button
-            className="flex-1 px-2 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-lg text-[10px] font-medium transition-colors flex items-center justify-center gap-1"
-            onClick={(e) => {
-              e.stopPropagation()
-              onAddToPrivate()
-            }}
-            title="Pin"
-          >
-            <Pin className="w-3 h-3" />
-          </button>
-        )}
 
-        {isPrivate && onRemove && (
-          <button
-            className="flex-1 px-2 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-300 rounded-lg text-[10px] font-medium transition-colors flex items-center justify-center gap-1"
-            onClick={(e) => {
-              e.stopPropagation()
-              onRemove()
-            }}
-            title="Remove"
-          >
-            <UserMinus className="w-3 h-3" />
-          </button>
-        )}
-      </div>
+  {/* 👤 Profile */}
+  <button
+    onClick={goProfile}
+    className="flex-1 p-2 rounded-lg bg-purple-600/30 text-purple-300 hover:bg-purple-600/40 transition flex items-center justify-center"
+    title="Profile"
+  >
+    <User className="w-5 h-5" />
+  </button>
 
-      {/* Hover Effect Overlay */}
-      <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-purple-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+  {/* 💬 Message */}
+  <button
+    onClick={goChat}
+    className="flex-1 p-2 rounded-lg bg-gray-700/60 text-gray-300 hover:bg-gray-600 transition flex items-center justify-center"
+    title="Message"
+  >
+    <MessageCircle className="w-5 h-5" />
+  </button>
+
+  
+
+</div>
+
     </div>
-  )
+  );
 }

@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react"
 import { supabase } from "../services/supabase"
 import { useAuth } from "../hooks/useAuth"
 import { useParams, useNavigate } from "react-router-dom"
+import avatarPlaceholder from "../assets/avatar-placeholder.png"
 
 export default function Chat() {
   const { user } = useAuth()
@@ -471,7 +472,7 @@ export default function Chat() {
       <div className="flex items-center gap-3 min-w-0">
         <div className="relative flex-shrink-0">
           <img
-            src={receiver?.avatar_url || "https://via.placeholder.com/44"}
+            src={receiver?.avatar_url || avatarPlaceholder}
             alt={receiver?.username}
             className="w-10 h-10 sm:w-11 sm:h-11 rounded-full border-2 border-purple-500/30"
           />

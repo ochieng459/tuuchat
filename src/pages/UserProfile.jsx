@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { supabase } from "../services/supabase"
 import { useAuth } from "../hooks/useAuth"
+import avatarPlaceholder from "../assets/avatar-placeholder.png";
 import {
   ArrowLeft,
   Users,
@@ -166,7 +167,7 @@ export default function UserProfile() {
             {/* Avatar Section */}
             <div className="relative">
               <img
-                src={profile.avatar_url || "https://via.placeholder.com/128"}
+                src={profile.avatar_url || avatarPlaceholder}
                 className="w-32 h-32 rounded-full border-4 border-purple-500/30 object-cover"
                 alt={profile.username}
               />

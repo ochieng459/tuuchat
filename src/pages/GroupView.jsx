@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { supabase } from "../services/supabase"
+import avatarPlaceholder from "../assets/avatar-placeholder.png";
 import {
   ArrowLeft,
   Users,
@@ -183,7 +184,7 @@ export default function GroupView() {
             {/* Group Avatar */}
             <div className="relative">
               <img
-                src={group.avatar_url || "https://via.placeholder.com/160"}
+                src={group.avatar_url || avatarPlaceholder}
                 className="w-40 h-40 rounded-2xl border-4 border-purple-500/30 object-cover"
                 alt={group.name}
               />

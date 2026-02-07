@@ -21,7 +21,8 @@ import {
   Lock,
   Eye,
   Loader2,
-  CreditCard  // Added for wallet icon
+  CreditCard,
+  Phone  // Added Phone icon
 } from "lucide-react"
 
 export default function Profile() {
@@ -31,6 +32,10 @@ export default function Profile() {
   const [profile, setProfile] = useState(null)
   const [newName, setNewName] = useState("")
   const [uploading, setUploading] = useState(false)
+
+  // Phone number state
+  const [editingPhone, setEditingPhone] = useState(false)
+  const [newPhone, setNewPhone] = useState("")
 
   const [groups, setGroups] = useState([])
   const [editingGroupId, setEditingGroupId] = useState(null)
@@ -75,6 +80,7 @@ export default function Profile() {
     if (!error) {
       setProfile(data)
       setNewName(data.username)
+      setNewPhone(data.phone_number || "") // Initialize phone number
     }
   }
 
@@ -161,6 +167,53 @@ export default function Profile() {
     fetchMyGroups()
     fetchPrivateRooms()
   }, [user.id])
+
+  /* =========================
+     HANDLE PHONE NUMBER CHANGE
+  ========================== */
+  const handlePhoneChange = async () => {
+    const phone = newPhone.trim();
+    
+    // Basic validation
+    if (!phone) {
+      // Clear phone number if empty
+      const { error } = await supabase
+        .from("profiles")
+        .update({ phone_number: null })
+        .eq("id", user.id)
+      
+      if (!error) {
+        setProfile((prev) => ({ ...prev, phone_number: null }))
+        setEditingPhone(false)
+      }
+      return
+    }
+    
+    // Enhanced validation for international numbers
+    const phoneRegex = /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,3}[-\s\.]?[0-9]{1,4}[-\s\.]?[0-9]{1,4}$/;
+    
+    if (!phoneRegex.test(phone)) {
+      alert("Please enter a valid phone number (e.g., +254 712 345 678)");
+      return;
+    }
+    
+    // Format phone number (optional)
+    const formattedPhone = phone.replace(/\s+/g, '');
+    
+    const { error } = await supabase
+      .from("profiles")
+      .update({ phone_number: formattedPhone })
+      .eq("id", user.id)
+
+    if (error) {
+      console.error("Error updating phone number:", error)
+      alert("Failed to update phone number")
+      return
+    }
+
+    setProfile((prev) => ({ ...prev, phone_number: formattedPhone }))
+    setEditingPhone(false)
+  }
 
   /* =========================
      CREATE PRIVATE ROOM
@@ -573,7 +626,7 @@ export default function Profile() {
                 </div>
 
                 {/* User Stats */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                   <div className="bg-gray-900/50 rounded-lg p-3">
                     <div className="flex items-center gap-2 text-gray-400 mb-1">
                       <Mail className="w-4 h-4" />
@@ -581,6 +634,63 @@ export default function Profile() {
                     </div>
                     <p className="text-sm text-gray-300 truncate">{user.email}</p>
                   </div>
+                  
+                  {/* Phone Number Card */}
+                  <div className="bg-gray-900/50 rounded-lg p-3">
+                    <div className="flex items-center gap-2 text-gray-400 mb-1">
+                      <Phone className="w-4 h-4" />
+                      <span className="text-xs">Phone</span>
+                    </div>
+                    {editingPhone ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="tel"
+                          value={newPhone}
+                          onChange={(e) => setNewPhone(e.target.value)}
+                          className="flex-1 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+                          placeholder="+254..."
+                          pattern="[\+]?[0-9\s\-\(\)]+"
+                          maxLength="20"
+                        />
+                        <div className="flex gap-1">
+                          <button
+                            onClick={handlePhoneChange}
+                            className="p-1 text-green-400 hover:text-green-300"
+                            title="Save"
+                          >
+                            <Save className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingPhone(false)
+                              setNewPhone(profile.phone_number || "")
+                            }}
+                            className="p-1 text-gray-400 hover:text-gray-300"
+                            title="Cancel"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-gray-300">
+                          {profile.phone_number || "Not set"}
+                        </p>
+                        <button
+                          onClick={() => {
+                            setEditingPhone(true)
+                            setNewPhone(profile.phone_number || "")
+                          }}
+                          className="p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+                          title="Edit phone number"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  
                   <div className="bg-gray-900/50 rounded-lg p-3">
                     <div className="flex items-center gap-2 text-gray-400 mb-1">
                       <Users className="w-4 h-4" />
