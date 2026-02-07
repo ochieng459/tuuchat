@@ -392,12 +392,12 @@ export default function PrivateRoomsView() {
                 {paying ? (
                   <span className="flex items-center justify-center gap-3">
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    Redirecting to Paystack...
+                    Redirecting to payment...
                   </span>
                 ) : (
                   <span className="flex items-center justify-center gap-3">
                     <CreditCard className="w-5 h-5" />
-                    Pay with Paystack
+                    Tap to pay
                   </span>
                 )}
               </button>
