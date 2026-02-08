@@ -4,6 +4,72 @@ import { useAuth } from "../hooks/useAuth"
 import { useParams, useNavigate } from "react-router-dom"
 import avatarPlaceholder from "../assets/avatar-placeholder.png"
 
+/* ---------------- HELPER: getOrCreateConversation ---------------- */
+async function getOrCreateConversation(userA, userB) {
+  if (!userA || !userB) return null
+
+  // find private conversations for userA
+  const { data: aRows, error: aError } = await supabase
+    .from("conversation_participants")
+    .select("conversation_id, conversations!inner(type)")
+    .eq("user_id", userA)
+    .eq("conversations.type", "private")
+
+  if (aError) throw aError
+
+  const candidateIds = Array.from(
+    new Set((aRows || []).map((r) => r.conversation_id))
+  )
+
+  if (candidateIds.length > 0) {
+    // load participants for those conversations
+    const { data: pRows, error: pError } = await supabase
+      .from("conversation_participants")
+      .select("conversation_id, user_id")
+      .in("conversation_id", candidateIds)
+
+    if (pError) throw pError
+
+    const byConversation = new Map()
+    for (const row of pRows || []) {
+      if (!byConversation.has(row.conversation_id)) {
+        byConversation.set(row.conversation_id, new Set())
+      }
+      byConversation.get(row.conversation_id).add(row.user_id)
+    }
+
+    for (const [conversationId, users] of byConversation.entries()) {
+      if (users.size === 2 && users.has(userA) && users.has(userB)) {
+        return conversationId
+      }
+    }
+  }
+
+  // create new conversation
+  const { data: created, error: createError } = await supabase
+    .from("conversations")
+    .insert({
+      type: "private",
+      created_by: userA
+    })
+    .select("id")
+    .single()
+
+  if (createError) throw createError
+
+  // add participants
+  const { error: participantsError } = await supabase
+    .from("conversation_participants")
+    .insert([
+      { conversation_id: created.id, user_id: userA },
+      { conversation_id: created.id, user_id: userB }
+    ])
+
+  if (participantsError) throw participantsError
+
+  return created.id
+}
+
 export default function Chat() {
   const { user } = useAuth()
   const { id: receiverId } = useParams()
@@ -25,9 +91,19 @@ export default function Chat() {
   const [imageToSend, setImageToSend] = useState(null)
   const [imagePreviewUrl, setImagePreviewUrl] = useState(null)
   const [uploadingImage, setUploadingImage] = useState(false)
+  
+  // ✅ STEP 2 — Conversation state
+  const [conversationId, setConversationId] = useState(null)
 
   const messagesEndRef = useRef(null)
   const fileInputRef = useRef(null)
+
+  // reset conversation when switching receiver
+  useEffect(() => {
+    setConversationId(null)
+    setMessages([])
+    setLoading(true)
+  }, [receiverId])
 
   // scroll helper
   const scrollToBottom = () => {
@@ -67,6 +143,15 @@ export default function Chat() {
     console.log("🟢 Users online:", usersOnline)
   }, [usersOnline])
 
+  // ✅ STEP 2 — Load conversation_id when chat opens
+  useEffect(() => {
+    if (!senderId || !receiverUUID) return
+
+    getOrCreateConversation(senderId, receiverUUID)
+      .then(setConversationId)
+      .catch(console.error)
+  }, [senderId, receiverUUID])
+
   // --- Fetch receiver info ---
   const fetchReceiver = async () => {
     const { data } = await supabase
@@ -77,28 +162,31 @@ export default function Chat() {
     setReceiver(data)
   }
 
-  // --- Mark messages as read ---
+  // ✅ STEP 6 — Update markAsRead query
   const markAsRead = useCallback(async () => {
-    if (!senderId || !receiverUUID) return
+    if (!senderId || !conversationId) return
 
     await supabase
       .from("messages")
       .update({ is_read: true })
-      .eq("sender_id", receiverUUID)
-      .eq("receiver_id", senderId)
+      .eq("conversation_id", conversationId)
+      .neq("sender_id", senderId)
       .eq("is_read", false)
-  }, [senderId, receiverUUID])
+  }, [senderId, conversationId])
 
-  // --- Fetch last 50 messages ---
+  // ✅ STEP 3 — Change message fetch query
   const fetchMessages = async () => {
     setLoading(true)
+    
+    if (!conversationId) {
+      setLoading(false)
+      return
+    }
   
     const { data, error } = await supabase
       .from("messages")
       .select("*")
-      .or(
-        `and(sender_id.eq.${user.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user.id})`
-      )
+      .eq("conversation_id", conversationId)
       .order("created_at", { ascending: false })
       .limit(50)
   
@@ -118,9 +206,9 @@ export default function Chat() {
     }
   }
 
-  // --- Realtime subscription ---
+  // ✅ STEP 5 — Change realtime subscription filter
   useEffect(() => {
-    if (!user?.id || !receiverId) return
+    if (!user?.id || !receiverId || !conversationId) return
 
     fetchReceiver()
     fetchMessages()
@@ -132,16 +220,12 @@ export default function Chat() {
         {
           event: "INSERT",
           schema: "public",
-          table: "messages"
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`
         },
         (payload) => {
           const msg = payload.new
           if (msg.sender_id === user.id) return
-
-          const isOurChat =
-            msg.sender_id === receiverId && msg.receiver_id === user.id
-
-          if (!isOurChat) return
 
           setMessages(prev => {
             if (prev.some(m => m.id === msg.id)) return prev
@@ -155,7 +239,7 @@ export default function Chat() {
       .subscribe()
 
     return () => supabase.removeChannel(channel)
-  }, [user?.id, receiverId])
+  }, [user?.id, receiverId, conversationId])
 
   // online presence
   useEffect(() => {
@@ -190,10 +274,10 @@ export default function Chat() {
     }
   }, [user?.id])
 
-  // --- Send message ---
+  // ✅ STEP 4 — Change send message insert
   const handleSend = async (e) => {
     e.preventDefault()
-    if (!newMessage.trim()) return
+    if (!newMessage.trim() || !conversationId) return
 
     const tempMessage = {
       id: crypto.randomUUID(),
@@ -201,7 +285,8 @@ export default function Chat() {
       receiver_id: receiverId,
       content: newMessage.trim(),
       created_at: new Date().toISOString(),
-      is_read: false
+      is_read: false,
+      conversation_id: conversationId
     }
 
     setMessages((prev) => [...prev, tempMessage])
@@ -209,8 +294,9 @@ export default function Chat() {
     setNewMessage("")
 
     const { error } = await supabase.from("messages").insert({
+      conversation_id: conversationId,
       sender_id: user.id,
-      receiver_id: receiverId,
+      receiver_id: receiverId, // keep for now (backward compat)
       content: tempMessage.content
     })
 
@@ -242,7 +328,7 @@ export default function Chat() {
 
   /* ---------------- SEND IMAGE ---------------- */
   const sendImage = async () => {
-    if (!imageToSend) return
+    if (!imageToSend || !conversationId) return
 
     setUploadingImage(true)
 
@@ -273,13 +359,16 @@ export default function Chat() {
         view_once: true,
         is_read: false,
         created_at: new Date().toISOString(),
-        public_url: publicUrlData.publicUrl
+        public_url: publicUrlData.publicUrl,
+        conversation_id: conversationId
       }
 
       setMessages((prev) => [...prev, tempMessage])
       scrollToBottom()
 
+      // ✅ STEP 4 — Update image message insert
       const { error: insertError } = await supabase.from("messages").insert({
+        conversation_id: conversationId,
         sender_id: senderId,
         receiver_id: receiverId,
         content: "",

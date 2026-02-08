@@ -27,7 +27,7 @@ export default function Home() {
 
     const { data: usersData, error } = await supabase
       .from("profiles")
-      .select("id, username, avatar_url")
+      .select("id, username, avatar_url, is_online")
       .neq("id", user.id)
       .order("username", { ascending: true })
 
@@ -116,6 +116,16 @@ export default function Home() {
         "postgres_changes",
         {
           event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `receiver_id=eq.${user.id}`
+        },
+        fetchPublicUsers
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
           schema: "public",
           table: "messages",
           filter: `receiver_id=eq.${user.id}`
@@ -302,6 +312,7 @@ export default function Home() {
                 <UserCard
                   key={u.id}
                   user={u}
+                  currentUserId={user?.id}
                   onClick={() => navigate(`/chat/${u.id}`)}
                 />
               ))}
